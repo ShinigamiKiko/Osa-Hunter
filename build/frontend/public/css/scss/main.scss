@@ -1,0 +1,26 @@
+// ── OSA Hunter — SCSS entry point ────────────────────────────
+// Edit partials, then compile:
+//   sass css/scss/main.scss css/main.css --style=compressed
+//
+// Partials overview:
+//   _base         — CSS variables, reset, html/body
+//   _sidebar      — sidebar shell, logo, nav, status dots
+//   _layout       — main area, topbar, breadcrumb, pages, buttons, sev badges
+//   _table        — .tbl, .row-* list cells
+//   _detail       — detail header, vuln cards, vgrid, epss, activity badge, empty state
+//   _radar        — radar animation (.er-*)
+//   _modal        — overlay, modal, eco-grid, form fields
+//   _image-scan   — image scan form & hero
+//   _animations   — all @keyframes
+//   _misc         — scrollbar, export btn, pkg-group, dep badges
+
+@use 'partials/base';
+@use 'partials/sidebar';
+@use 'partials/layout';
+@use 'partials/table';
+@use 'partials/detail';
+@use 'partials/radar';
+@use 'partials/modal';
+@use 'partials/image-scan';
+@use 'partials/animations';
+@use 'partials/misc';

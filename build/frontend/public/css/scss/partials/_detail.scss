@@ -1,0 +1,190 @@
+// ── Detail header ────────────────────────────────────────────
+.detail-header {
+  background: var(--s1);
+  border: 1px solid var(--br);
+  border-radius: 14px;
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.detail-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &.blue  { background: rgba(77,166,255,.1);  border: 1px solid rgba(77,166,255,.25); }
+  &.green { background: rgba(94,240,200,.1);  border: 1px solid rgba(94,240,200,.25); }
+}
+
+.detail-info  { flex: 1; min-width: 0; }
+.detail-name  { font-family: var(--font-display); font-size: 23px; font-weight: 700; color: #fff; margin-bottom: 5px; letter-spacing: -.01em; }
+.detail-sub   { font-size: 13px; color: var(--muted); line-height: 1.65; }
+.detail-chips { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+
+// ── Vuln cards ───────────────────────────────────────────────
+.vi {
+  background: var(--s2);
+  border: 1px solid var(--br);
+  border-radius: 11px;
+  overflow: hidden;
+  margin-bottom: 9px;
+
+  &.open .vi-chev { transform: rotate(180deg); }
+  &.open .vi-body { display: block; }
+}
+
+.vi-hdr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 17px;
+  cursor: pointer;
+  transition: background .13s;
+
+  &:hover { background: rgba(255,255,255,.028); }
+}
+
+.vbar {
+  width: 3px;
+  height: 34px;
+  border-radius: 2px;
+  flex-shrink: 0;
+
+  &.CRITICAL { background: var(--c); }
+  &.HIGH     { background: var(--h); }
+  &.MEDIUM   { background: var(--m); }
+  &.LOW      { background: var(--l); }
+  &.UNKNOWN  { background: var(--u); }
+}
+
+.vi-cvss-inline { display: inline-flex; align-items: center; margin-left: 8px; vertical-align: middle; }
+.vi-id          { font-size: 17px; font-weight: 600; color: var(--accent); min-width: 240px; flex-shrink: 0; line-height: 1.5; }
+.vi-sum         { font-size: 15px; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vi-chev        { color: var(--muted); font-size: 10px; transition: transform .18s; flex-shrink: 0; }
+
+.vi-sev {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  letter-spacing: .05em;
+
+  &.CRITICAL { background: var(--c-bg); color: var(--c); }
+  &.HIGH     { background: var(--h-bg); color: var(--h); }
+  &.MEDIUM   { background: var(--m-bg); color: var(--m); }
+  &.LOW      { background: var(--l-bg); color: var(--l); }
+  &.UNKNOWN  { background: var(--u-bg); color: var(--u); }
+}
+
+.vi-body {
+  display: none;
+  border-top: 1px solid var(--br);
+  padding: 15px 17px 15px 33px;
+}
+
+// ── Vuln grid ────────────────────────────────────────────────
+.vgrid { display: grid; grid-template-columns: 115px 1fr; gap: 7px 13px; }
+.vk    { color: var(--muted); font-size: 12px; align-self: start; padding-top: 2px; letter-spacing: .02em; }
+.vv    { color: var(--text); word-break: break-word; line-height: 1.65; font-size: 15px;
+  a { color: var(--accent); text-decoration: none; &:hover { text-decoration: underline; } }
+}
+
+.al-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+.al { background: var(--s3); border: 1px solid var(--br); color: var(--muted2); padding: 2px 7px; border-radius: 3px; font-size: 12px; }
+
+.fix-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--l-bg);
+  border: 1px solid var(--l-br);
+  color: var(--l);
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+// ── EPSS ─────────────────────────────────────────────────────
+.epss-row { display: flex; align-items: center; gap: 8px; }
+
+.epss-pct {
+  font-size: 13px;
+  padding: 2px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--br);
+  color: var(--muted2);
+  background: var(--s1);
+
+  &.hi { border-color: var(--c-br); color: var(--c); background: var(--c-bg); }
+  &.mi { border-color: var(--m-br); color: var(--m); background: var(--m-bg); }
+}
+
+.epss-bar  { width: 75px; height: 4px; background: rgba(255,255,255,.07); border-radius: 2px; overflow: hidden; }
+.epss-fill { height: 100%; border-radius: 2px; background: var(--l); &.mi { background: var(--m); } &.hi { background: var(--c); } }
+
+.enrich-badges { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+
+// ── Activity badge ───────────────────────────────────────────
+.act-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-top: 5px;
+
+  &.active  { background: rgba(52,211,153,.1);  border: 1px solid rgba(52,211,153,.28);  color: var(--l); }
+  &.unknown { background: rgba(90,100,120,.1);  border: 1px solid rgba(90,100,120,.22);  color: var(--muted2); }
+}
+
+.act-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  .act-badge.active &  { background: var(--l); box-shadow: 0 0 5px var(--l); }
+  .act-badge.unknown & { background: var(--u); }
+}
+
+.act-date { color: var(--muted); font-size: 11px; margin-left: 2px; }
+
+// ── Empty state ──────────────────────────────────────────────
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+
+  h2 { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 9px; letter-spacing: -.01em; }
+  p  { font-size: 14px; color: var(--muted); max-width: 300px; line-height: 1.85; margin-bottom: 24px; }
+}
+
+.empty-rings { position: relative; width: 140px; height: 140px; margin-bottom: 26px; }
+
+.ering {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--br);
+
+  &:nth-child(1) { inset: 0;    border-top-color:   rgba(94,240,200,.4);  animation: rR 8s  linear infinite; }
+  &:nth-child(2) { inset: 18px; border-right-color: rgba(94,240,200,.22); animation: rL 12s linear infinite; }
+  &:nth-child(3) { inset: 36px; border-bottom-color:rgba(94,240,200,.12); animation: rR 17s linear infinite; }
+}
+
+.ering-c {
+  position: absolute; inset: 50px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--br);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
