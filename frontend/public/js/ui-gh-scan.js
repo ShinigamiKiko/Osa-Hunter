@@ -220,6 +220,7 @@ function renderGhDetail(scan){
         '<span class="vbar '+sev+'" style="height:16px;width:3px;border-radius:2px;flex-shrink:0"></span>' +
         '<span style="font-family:var(--font-mono);font-size:11px;color:var(--accent);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(fname)+'<span style="color:var(--muted)">'+esc(lineStr)+'</span></span>' +
         '<span class="sev '+sev+'" style="font-size:9px;padding:1px 6px;flex-shrink:0">'+sev+'</span>' +
+        (f.isBlocking?'<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);flex-shrink:0;font-weight:600">BLOCKING</span>':'') +
         '<span id="ghfichev-'+vi+'" style="color:var(--muted);font-size:10px;transition:transform .18s;flex-shrink:0;margin-left:4px">▶</span>' +
         '</div>' +
         '<div id="ghfib-'+vi+'" style="display:none">'+ghFindingBodyHtml(f)+'</div>' +
@@ -239,6 +240,7 @@ function renderGhDetail(scan){
       '</div>';
   }).join('');
 
+  window._lastSastScan = scan;
   var fileCount = new Set(findings.map(function(f){return f.path;}).filter(Boolean)).size;
   el.innerHTML =
     '<div class="detail-header">' +
@@ -250,6 +252,7 @@ function renderGhDetail(scan){
     '<div style="margin-top:6px">'+_toxicBadgeHtml(scan.toxic)+'</div>' +
     '</div>' +
     '<div class="detail-chips">'+(chips||'<span class="sev NONE">✅ CLEAN</span>')+'</div>' +
+    '<div style="margin-left:auto;flex-shrink:0">'+exportBtnHtml('sast','__SAST_SCAN__')+'</div>' +
     '</div>' +
     (findings.length===0?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">✅ No findings — this repository looks clean!</div>':groupHtml);
 

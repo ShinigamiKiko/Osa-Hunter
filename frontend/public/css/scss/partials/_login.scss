@@ -1,0 +1,114 @@
+// ── Login page ────────────────────────────────────────────────
+
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 520px;
+  background: #0b0f18;
+  border: 1px solid #1a2030;
+  border-radius: 20px;
+  padding: 48px 72px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// ── Radar container ───────────────────────────────────────────
+.login-radar {
+  margin-bottom: 8px;
+}
+
+// ── Brand ─────────────────────────────────────────────────────
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 36px;
+}
+
+.login-brand-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  color: #5ef0c8;
+}
+
+.login-brand-sub {
+  font-size: 13px;
+  color: #5a6478;
+}
+
+// ── Form ──────────────────────────────────────────────────────
+.login-form {
+  width: 100%;
+  max-width: 480px;
+}
+
+.login-field {
+  margin-bottom: 18px;
+
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #8a9ab0;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+
+  input {
+    width: 100%;
+    padding: 12px 16px;
+    background: #080b10;
+    border: 1px solid #1a2030;
+    border-radius: 9px;
+    color: #e5e7eb;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s;
+    box-sizing: border-box;
+
+    &:focus { border-color: #5ef0c8; }
+    &::placeholder { color: #3a4458; }
+  }
+}
+
+.login-btn {
+  width: 100%;
+  padding: 13px;
+  background: #5ef0c8;
+  border: none;
+  border-radius: 9px;
+  color: #07090f;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: opacity .15s;
+
+  &:hover    { opacity: .88; }
+  &:disabled { opacity: .4; cursor: not-allowed; }
+}
+
+.login-err {
+  display: none;
+  background: #1a0808;
+  border: 1px solid #ff3b30;
+  color: #ff6b6b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  margin-top: 14px;
+}

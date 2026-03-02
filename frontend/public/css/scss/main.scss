@@ -13,6 +13,7 @@
 //   _image-scan   — image scan form & hero
 //   _animations   — all @keyframes
 //   _misc         — scrollbar, export btn, pkg-group, dep badges
+//   _login        — login page card, form, radar wrapper
 
 @use 'partials/base';
 @use 'partials/sidebar';
@@ -24,3 +25,4 @@
 @use 'partials/image-scan';
 @use 'partials/animations';
 @use 'partials/misc';
+@use 'partials/login';

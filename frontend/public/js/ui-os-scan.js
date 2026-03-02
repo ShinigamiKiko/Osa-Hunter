@@ -159,6 +159,7 @@ function renderOsDetail(scan){
     </div>`;
   }).join('');
 
+  window._lastOsScan = scan;
   el.innerHTML=`
     <div class="detail-header">
       <div class="detail-icon" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);font-size:22px;display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;flex-shrink:0">${distroInfo.logo}</div>
@@ -167,6 +168,7 @@ function renderOsDetail(scan){
         <div class="detail-sub">${esc(distroInfo.label)}${scan.distroVer?' '+esc(scan.distroVer):''}${scan.desc?' · '+esc(scan.desc):''} · ${vulns.length} vulnerabilit${vulns.length===1?'y':'ies'} across ${sorted.length} package${sorted.length!==1?'s':''} · scanned ${fmtDate(scan.scannedAt)}</div>
       </div>
       <div class="detail-chips">${chips||'<span class="sev NONE">✅ CLEAN</span>'}</div>
+      <div style="margin-left:auto;flex-shrink:0">${exportBtnHtml('os','__OS_SCAN__')}</div>
     </div>
     ${vulns.length===0?'<div style="text-align:center;padding:60px;color:var(--l);font-size:14px">🛡️ No vulnerabilities found — this package is clean!</div>':groupHtml}`;
 

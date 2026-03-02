@@ -1,84 +1,45 @@
 'use strict';
-
-const { sevBadge, epssBar, cvssLine, activityLine, toxicLine } = require('./style');
-const { vulnRows } = require('./rows');
-const { buildBaseHtml } = require('./base');
+const { activityLine, toxicLine, wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter } = require('./style');
+const { vulnThead, vulnRows } = require('./rows');
 
 function buildLibReportHtml(scan, { osaPngB64 = '' } = {}) {
-  const pkg = scan.package || scan.pkg || scan.name || 'Library';
-  const eco = scan.ecosystem || scan.ecoLabel || 'Unknown';
+  const pkg  = scan.package || scan.pkg || scan.name || 'Library';
+  const eco  = scan.ecosystem || scan.ecoLabel || 'Unknown';
+  const ver  = scan.version || '';
   const desc = scan.desc || '';
 
-  const counts = scan.counts || { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0, NONE: 0 };
-  const topSev = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'NONE';
-
-  const vulns = scan.vulns || scan.vulnerabilities || [];
+  const vulns   = scan.vulns || scan.vulnerabilities || [];
+  const counts  = scan.counts || scan.summary || {};
+  const topSev  = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => (counts[s]||0) > 0) || 'NONE';
   const kevHits = vulns.filter(v => v.inKev).length;
-  const pocHits = vulns.filter(v => (v.pocs || []).length).length;
+  const pocHits = vulns.filter(v => (v.pocs||[]).length).length;
+  const date    = new Date(scan.scannedAt || Date.now()).toLocaleString('en-US', { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
-  const sections = [];
+  const right = activityLine(scan.activity) + toxicLine(scan.toxic);
 
-  sections.push(`<div class="section">
-    <div class="section-h"><div class="section-title">Package</div></div>
-    <div class="section-body">
-      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:18px;font-weight:900;color:#e5e7eb">${pkg}</div>
-          <div style="margin-top:5px;color:#8a9ab0;font-size:12px">Ecosystem: <b style="color:#e5e7eb">${eco}</b></div>
-          ${scan.version ? `<div style="margin-top:5px;color:#8a9ab0;font-size:12px">Version: <b style="color:#e5e7eb">${scan.version}</b></div>` : ''}
-        </div>
-        <div style="min-width:240px">
-          ${activityLine(scan.activity)}
-          <div style="margin-top:6px">${toxicLine(scan.toxic)}</div>
-        </div>
-      </div>
-    </div>
-  </div>`);
-
-  sections.push(`<div class="section">
-    <div class="section-h"><div class="section-title">Vulnerabilities</div></div>
-    <div class="section-body">
-      <table>
-        <thead><tr>
-          <th style="text-align:left;padding:10px 14px;color:#8a9ab0;font-size:11px">ID</th>
-          <th style="text-align:left;padding:10px 14px;color:#8a9ab0;font-size:11px">Details</th>
-          <th style="text-align:left;padding:10px 14px;color:#8a9ab0;font-size:11px">Severity</th>
-        </tr></thead>
-        <tbody>${vulnRows(vulns)}</tbody>
-      </table>
-    </div>
-  </div>`);
-
-  sections.push(`<div class="section">
-    <div class="section-h"><div class="section-title">Enrichment</div></div>
-    <div class="section-body" style="display:flex;gap:18px;flex-wrap:wrap">
-      <div style="min-width:220px">
-        <div style="color:#8a9ab0;font-size:11px">Top CVSS</div>
-        <div style="margin-top:6px">${cvssLine(scan.topCvss)}</div>
-      </div>
-      <div style="min-width:220px">
-        <div style="color:#8a9ab0;font-size:11px">Top EPSS</div>
-        <div style="margin-top:6px">${epssBar(scan.topEpss)}</div>
-      </div>
-      <div style="min-width:220px">
-        <div style="color:#8a9ab0;font-size:11px">Overall Severity</div>
-        <div style="margin-top:6px">${sevBadge(topSev)}</div>
-      </div>
-    </div>
-  </div>`);
-
-  return buildBaseHtml({
-    title: `${pkg}`,
-    subtitle: `${eco}`,
-    scannedAt: scan.scannedAt || new Date().toISOString(),
-    topSev,
-    counts,
-    kevHits,
-    pocHits,
-    desc,
-    sections,
-    osaPngB64,
+  const header = buildHeader({
+    logo: osaPngB64,
+    title: pkg,
+    sub: `${eco}${ver ? ' · ' + ver : ''}`,
+    sev: topSev,
+    meta: `Scanned: ${date}${desc ? ' · ' + desc : ''}`,
+    right,
   });
+
+  const chips  = buildChips(counts, kevHits, pocHits);
+  const alerts = buildAlerts(kevHits, pocHits, scan.toxic);
+
+  const section = `<div class="section">
+    <div class="sec-hdr">
+      <span class="sec-title">Vulnerabilities</span>
+      <span class="sec-count">${vulns.length} finding${vulns.length !== 1 ? 's' : ''}</span>
+    </div>
+    <table>${vulnThead(false)}<tbody>${vulnRows(vulns)}</tbody></table>
+  </div>`;
+
+  const footer = buildFooter(date);
+
+  return wrapHtml(header + chips + alerts + section + footer);
 }
 
 module.exports = { buildLibReportHtml };

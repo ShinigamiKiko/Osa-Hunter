@@ -36,8 +36,18 @@ function _emptyRadar(){
 
 // ── NAVIGATION ────────────────────────────────────────────────
 function navTo(page, opts={}){
+  // Ensure page-admin div exists before trying to activate it
+  if(page==='admin' && !document.getElementById('page-admin')){
+    const d=document.createElement('div');
+    d.id='page-admin'; d.className='page';
+    d.innerHTML='<div id="adminContent"></div>';
+    document.querySelector('.main')||document.body.appendChild(d);
+    (document.querySelector('.main')||document.body).appendChild(d);
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+page).classList.add('active');
+  const pageEl = document.getElementById('page-'+page);
+  if(!pageEl){ console.warn('navTo: page not found:', page); return; }
+  pageEl.classList.add('active');
 
   const isLib=page.startsWith('lib');
   const isDep=page.startsWith('dep');
@@ -49,13 +59,22 @@ function navTo(page, opts={}){
   document.getElementById('nav-img').classList.toggle('active',isImg);
   document.getElementById('nav-os')?.classList.toggle('active',isOs);
   document.getElementById('nav-gh')?.classList.toggle('active',isGh);
+  document.getElementById('nav-admin')?.classList.toggle('active', page==='admin');
+
+  // Admin page
+  if(page==='admin'){
+    document.getElementById('topbarLeft').innerHTML='<span style="font-size:17px;font-weight:700;color:#fff">User Management</span>';
+    document.getElementById('topbarActions').innerHTML='';
+    if(typeof renderAdmin==='function') renderAdmin();
+    return;
+  }
 
   const tl=document.getElementById('topbarLeft');
   const ta=document.getElementById('topbarActions');
 
   if(page==='lib-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Library Scan</span>`;
-    ta.innerHTML=`<button class="btn-primary" onclick="openLibModal()">+ Add library</button>`;
+    ta.innerHTML='';
     renderLibList();
 
   }else if(page==='lib-detail'){
@@ -72,7 +91,7 @@ function navTo(page, opts={}){
 
   }else if(page==='dep-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Dependency Scan</span>`;
-    ta.innerHTML=`<button class="btn-primary" style="background:#a78bfa" onclick="openDepModal()">+ Add scan</button>`;
+    ta.innerHTML='';
     renderDepList();
 
   }else if(page==='dep-detail'){
@@ -103,11 +122,11 @@ function navTo(page, opts={}){
 
   }else if(page==='img-form'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Image Scan</span>`;
-    ta.innerHTML=imgScans.length?`<button class="btn-secondary" onclick="navTo('img-list')">← Back to results</button>`:'';
+    ta.innerHTML='';
 
   }else if(page==='img-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Image Scan</span>`;
-    ta.innerHTML=`<button class="btn-primary blue-btn" onclick="navTo('img-form')">+ New scan</button>`;
+    ta.innerHTML='';
     renderImgList();
 
   }else if(page==='img-detail'){
@@ -124,7 +143,7 @@ function navTo(page, opts={}){
 
   }else if(page==='os-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">OS Packages</span>`;
-    ta.innerHTML=`<button class="btn-primary" style="background:#f97316" onclick="openOsModal()">+ Add scan</button>`;
+    ta.innerHTML='';
     renderOsList();
 
   }else if(page==='os-detail'){
@@ -141,11 +160,11 @@ function navTo(page, opts={}){
 
   }else if(page==='gh-form'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">GitHub Scan</span>`;
-    ta.innerHTML=ghScans.length?`<button class="btn-secondary" onclick="navTo('gh-list')">← Back to results</button>`:'';
+    ta.innerHTML='';
 
   }else if(page==='gh-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">GitHub Scan</span>`;
-    ta.innerHTML=`<button class="btn-primary" style="background:#a78bfa;color:#07090f" onclick="navTo('gh-form')">+ New scan</button>`;
+    ta.innerHTML='';
     renderGhList();
 
   }else if(page==='gh-detail'){

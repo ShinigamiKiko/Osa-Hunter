@@ -1,94 +1,71 @@
 'use strict';
-
-const { EXPORT_SEV_COLORS } = require('./style');
-const { compactVulnRow } = require('./rows');
-const { buildBaseHtml } = require('./base');
+const { wrapHtml, buildHeader, buildChips, buildAlerts, buildFooter, sevBadge } = require('./style');
+const { vulnThead, vulnRows } = require('./rows');
 
 function buildDepReportHtml(scan, { osaPngB64 = '' } = {}) {
-  const pkg = scan.package || 'Dependency Scan';
-  const desc = scan.desc || '';
-
+  const pkg    = scan.package || 'Dependency Scan';
+  const ver    = scan.version || '';
+  const sys    = scan.system || '';
+  const desc   = scan.desc || '';
+  const deps   = scan.deps || [];
   const summary = scan.summary || {};
-  const counts = summary.counts || summary || { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0, NONE: 0 };
-  const topSev = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'NONE';
 
-  const deps = scan.deps || [];
+  // counts may live in summary.counts or directly in summary
+  const counts = summary.CRITICAL != null ? summary : (summary.counts || {});
+  const topSev = ['CRITICAL','HIGH','MEDIUM','LOW'].find(s => (counts[s]||0) > 0) || 'NONE';
 
-  let kevHits = 0;
-  let pocHits = 0;
-  for (const d of deps) {
-    for (const v of d.vulns || []) {
-      if (v.inKev) kevHits++;
-      if ((v.pocs || []).length) pocHits++;
-    }
-  }
+  let kevHits = 0, pocHits = 0;
+  deps.forEach(d => (d.vulns||[]).forEach(v => {
+    if (v.inKev) kevHits++;
+    if ((v.pocs||[]).length) pocHits++;
+  }));
 
-  const sections = [];
-  sections.push(`<div class="section">
-    <div class="section-h"><div class="section-title">Package</div></div>
-    <div class="section-body">
-      <div style="font-size:18px;font-weight:900;color:#e5e7eb">${pkg}</div>
-      ${scan.version ? `<div style="margin-top:6px;color:#8a9ab0;font-size:12px">Version: <b style="color:#e5e7eb">${scan.version}</b></div>` : ''}
-      ${scan.deps ? `<div style="margin-top:6px;color:#8a9ab0;font-size:12px">Dependencies: <b style="color:#e5e7eb">${scan.deps.length}</b></div>` : ''}
-      ${desc ? `<div style="margin-top:10px;color:#cbd5e1;font-size:12px">${desc}</div>` : ''}
-    </div>
-  </div>`);
+  const date = new Date(scan.scannedAt || Date.now()).toLocaleString('en-US', { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
-  const rows = deps.map((d, idx) => {
-    const name = d.name || d.package || 'dep';
-    const ver = d.version || '';
-    const vulns = d.vulns || [];
-    const rowBg = idx % 2 === 0 ? '#07090f' : '#0b0f16';
-    const top = vulns[0];
-    const sev = (top?._sev || top?.severity || top?.Severity || 'NONE');
-    const sevUp = String(sev).toUpperCase();
-    const sc = EXPORT_SEV_COLORS[sevUp] || EXPORT_SEV_COLORS.UNKNOWN;
+  const extraChip = `<div class="chip"><b>${deps.length}</b> deps</div>`;
+  const header = buildHeader({
+    logo: osaPngB64,
+    title: 'Dependency Scan',
+    sub: `${pkg}${ver ? ' · ' + ver : ''}${sys ? ' · ' + sys : ''}`,
+    sev: topSev,
+    meta: `Scanned: ${date} · ${deps.length} dependencies${desc ? ' · ' + desc : ''}`,
+  });
 
-    const sub = vulns.slice(0, 5).map(compactVulnRow).join('');
+  const chips  = buildChips(counts, kevHits, pocHits, extraChip);
+  const alerts = buildAlerts(kevHits, pocHits, scan.toxic);
 
-    return `<div class="section" style="margin-top:16px">
-      <div class="section-h">
-        <div class="section-title">${name}${ver ? ` <span style=\"color:#8a9ab0;font-weight:700\">@${ver}</span>` : ''}</div>
-        <div style="font-size:11px;color:${sc.text};font-weight:900">${sevUp}</div>
+  // One section per dep that has vulns
+  const vulnDeps = deps.filter(d => (d.vulns||[]).length > 0);
+  const cleanDeps = deps.filter(d => !(d.vulns||[]).length);
+
+  const depSections = vulnDeps.map(d => {
+    const name    = d.name || d.package || 'dep';
+    const dver    = d.version || '';
+    const rel     = (d.relation||'').toUpperCase();
+    const isDirect = rel === 'DIRECT';
+    const topD    = (d.vulns||[])[0];
+    const dsev    = (topD?._sev || topD?.severity || 'UNKNOWN').toUpperCase();
+    return `<div class="section">
+      <div class="dep-hdr">
+        <div>
+          <span style="font-family:monospace;font-size:12px;font-weight:700;color:#e5e7eb">${name}</span>
+          ${dver ? `<span style="font-family:monospace;font-size:12px;color:#8a9ab0"> @${dver}</span>` : ''}
+          <span class="dep-rel${isDirect ? ' direct' : ''}">${isDirect ? 'DIRECT' : 'INDIRECT'}</span>
+        </div>
+        ${sevBadge(dsev)}
       </div>
-      <div class="section-body">
-        ${!vulns.length ? '<div style="color:#34d399">✅ No vulns</div>' : `
-        <table>
-          <thead><tr>
-            <th style="text-align:left;padding:10px 10px;color:#8a9ab0;font-size:11px">ID</th>
-            <th style="text-align:center;padding:10px 10px;color:#8a9ab0;font-size:11px">Sev</th>
-            <th style="text-align:center;padding:10px 10px;color:#8a9ab0;font-size:11px">CVSS</th>
-            <th style="text-align:center;padding:10px 10px;color:#8a9ab0;font-size:11px">EPSS</th>
-            <th style="text-align:left;padding:10px 10px;color:#8a9ab0;font-size:11px">Summary</th>
-          </tr></thead>
-          <tbody>${sub}</tbody>
-        </table>`}
-      </div>
+      <table>${vulnThead(false)}<tbody>${vulnRows(d.vulns||[])}</tbody></table>
     </div>`;
   }).join('');
 
-  sections.push(rows);
+  const cleanSection = cleanDeps.length ? `<div class="section" style="margin-top:12px">
+    <div class="sec-hdr"><span class="sec-title">Clean dependencies</span><span class="sec-count">${cleanDeps.length}</span></div>
+    <div style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px">
+      ${cleanDeps.map(d => `<span style="font-family:monospace;font-size:11px;background:#0d1219;border:1px solid #1a2030;padding:3px 10px;border-radius:999px;color:#34d399">${d.name||''}${d.version ? '@'+d.version : ''}</span>`).join('')}
+    </div>
+  </div>` : '';
 
-  const extraStats = `<div class="summary-row" style="margin-top:10px">
-    ${Object.entries(counts).map(([s, c]) => {
-      const sc = EXPORT_SEV_COLORS[s] || EXPORT_SEV_COLORS.UNKNOWN;
-      return `<span class=\"stat-chip\" style=\"border-color:${sc.border}\"><b style=\"color:${sc.text}\">${c}</b> ${s}</span>`;
-    }).join('')}
-  </div>`;
-
-  return buildBaseHtml({
-    title: 'Dependency Scan',
-    subtitle: `${pkg}`,
-    scannedAt: scan.scannedAt || new Date().toISOString(),
-    topSev,
-    counts,
-    kevHits,
-    pocHits,
-    desc,
-    extraStats,
-    sections,
-    osaPngB64,
-  });
+  return wrapHtml(header + chips + alerts + depSections + cleanSection + buildFooter(date));
 }
 
 module.exports = { buildDepReportHtml };

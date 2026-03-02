@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OSA Hunter — Sign In</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/css/main.css"/>
+  <style>
+    /* Override app layout for login page */
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      min-height: 100vh !important;
+      width: 100% !important;
+      max-width: none !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background: #07090f !important;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    #app { display: none !important; }
+  </style>
+</head>
+<body>
+<div id="app"></div><!-- suppress app layout -->
+
+<div class="login-page">
+  <div class="login-card">
+
+    <!-- Radar top -->
+    <div class="login-radar">
+      <div class="er-stage" style="width:200px;height:200px;margin-bottom:0">
+        <div class="er-rings-rotate">
+          <div class="er-ring er-lg" style="width:196px;height:196px"></div>
+          <div class="er-ring er-md" style="width:166px;height:166px"></div>
+          <div class="er-ring er-sm" style="width:134px;height:134px"></div>
+        </div>
+        <div class="er-blip er-b1" style="left:72%;top:30%"></div>
+        <div class="er-blip er-b2" style="left:24%;top:64%"></div>
+        <div class="er-blip er-b3" style="left:58%;top:74%"></div>
+        <div class="er-sweep-mask" style="width:166px;height:166px">
+          <div class="er-rotor">
+            <div class="er-beamglow"></div>
+            <div class="er-needle"></div>
+          </div>
+        </div>
+        <div class="er-crosshair"></div>
+        <div class="er-frame"></div>
+        <div class="er-wasp-wrap">
+          <img class="er-wasp" src="/assets/osa.png" alt="OSA" style="width:170px"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Brand -->
+    <div class="login-brand">
+      <span class="login-brand-name">OSA HUNTER</span>
+      <span class="login-brand-sub">Vulnerability Scanner</span>
+    </div>
+
+    <!-- Form -->
+    <div class="login-form">
+      <div class="login-field">
+        <label>Username</label>
+        <input id="username" type="text" placeholder="Enter username" autocomplete="username"/>
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input id="password" type="password" placeholder="Enter password" autocomplete="current-password"/>
+      </div>
+      <button class="login-btn" id="btnLogin" onclick="doLogin()">Sign In</button>
+      <div class="login-err" id="errMsg"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  fetch('/api/auth/me', { credentials: 'same-origin' }).then(r => {
+    if (r.ok) window.location.replace('/');
+  });
+
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('btnLogin');
+    const err = document.getElementById('errMsg');
+    err.style.display = 'none';
+    if (!username || !password) { showErr('Enter username and password'); return; }
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        credentials: 'same-origin',
+      });
+      const data = await r.json();
+      if (!r.ok) { showErr(data.error || 'Login failed'); return; }
+      window.location.replace('/');
+    } catch (e) { showErr('Connection error'); }
+    finally { btn.disabled = false; btn.textContent = 'Sign In'; }
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('errMsg');
+    el.textContent = msg; el.style.display = 'block';
+  }
+</script>
+</body>
+</html>

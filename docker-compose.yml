@@ -5,6 +5,25 @@ networks:
     driver: bridge
 
 services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: osvguard-postgres
+    networks:
+      - osvguard
+    environment:
+      POSTGRES_DB:       ${PGDATABASE:-osa}
+      POSTGRES_USER:     ${PGUSER:-osa}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-osa}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-osa} -d ${PGDATABASE:-osa}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: .
@@ -16,9 +35,19 @@ services:
       - "3001:3001"
     environment:
       - NVD_API_KEY=${NVD_API_KEY:-}
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGDATABASE=${PGDATABASE:-osa}
+      - PGUSER=${PGUSER:-osa}
+      - PGPASSWORD=${PGPASSWORD:-osa}
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - NODE_ENV=production
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - trivy-cache:/root/.cache/trivy
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -36,3 +65,4 @@ services:
 
 volumes:
   trivy-cache:
+  postgres-data:

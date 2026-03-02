@@ -7,7 +7,7 @@ const fs = require('fs');
 const nodePath = require('path');
 
 const { scanLimiter, rateLimit } = require('../shared');
-const { buildLibReportHtml, buildImgReportHtml, buildDepReportHtml } = require('../pdf');
+const { buildLibReportHtml, buildImgReportHtml, buildDepReportHtml, buildOsReportHtml, buildSastReportHtml } = require('../pdf');
 
 // Load osa.png as base64 once at startup for PDF embedding
 let OSA_PNG_B64 = '';
@@ -64,7 +64,7 @@ async function enrichTrivyVulns(trivyResult) {
 router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
   const { type, params } = req.body || {};
   if (!type || !params) return res.status(400).json({ error: '"type" and "params" required' });
-  if (!['lib', 'img', 'dep'].includes(type)) return res.status(400).json({ error: 'type must be lib | img | dep' });
+  if (!['lib', 'img', 'dep', 'os', 'sast'].includes(type)) return res.status(400).json({ error: 'type must be lib | img | dep | os | sast' });
 
   let puppeteer;
   try { puppeteer = require('puppeteer'); }
@@ -89,12 +89,26 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
       const enriched = await enrichTrivyVulns(data);
       scan = { image, tag: tag || 'latest', desc, ...enriched, scannedAt: new Date().toISOString() };
 
-    } else {
+    } else if (type === 'dep') {
       // dep — already enriched on frontend; do not re-scan
       const { scanData } = params;
       if (!scanData) return res.status(400).json({ error: 'dep export requires params.scanData' });
       scan = scanData;
       console.log('[PDF dep] using pre-enriched scan, package:', scan.package, 'deps:', scan.deps?.length);
+
+    } else if (type === 'os') {
+      // os — pre-enriched grype scan data from frontend
+      const { scanData } = params;
+      if (!scanData) return res.status(400).json({ error: 'os export requires params.scanData' });
+      scan = scanData;
+      console.log('[PDF os] using pre-enriched scan, package:', scan.package, 'vulns:', scan.vulns?.length);
+
+    } else if (type === 'sast') {
+      // sast — pre-scanned github findings from frontend
+      const { scanData } = params;
+      if (!scanData) return res.status(400).json({ error: 'sast export requires params.scanData' });
+      scan = scanData;
+      console.log('[PDF sast] repo:', scan.repo, 'findings:', scan.findings?.length);
     }
   } catch (e) {
     return res.status(502).json({ error: 'Scan failed: ' + e.message });
@@ -104,9 +118,11 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
   let html;
   try {
     const ctx = { osaPngB64: OSA_PNG_B64 };
-    if (type === 'lib') html = buildLibReportHtml(scan, ctx);
-    else if (type === 'img') html = buildImgReportHtml(scan, ctx);
-    else html = buildDepReportHtml(scan, ctx);
+    if      (type === 'lib')  html = buildLibReportHtml(scan, ctx);
+    else if (type === 'img')  html = buildImgReportHtml(scan, ctx);
+    else if (type === 'dep')  html = buildDepReportHtml(scan, ctx);
+    else if (type === 'os')   html = buildOsReportHtml(scan, ctx);
+    else                      html = buildSastReportHtml(scan, ctx);
   } catch (e) {
     console.error('[PDF build error]', e.stack || e.message);
     return res.status(500).json({ error: 'Failed to build report: ' + e.message });
@@ -141,11 +157,13 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
     });
 
-    const name = type === 'lib'
-      ? `osa-lib-${(scan.package || scan.pkg || 'scan').replace(/[^a-z0-9]/gi, '-')}`
-      : type === 'img'
-        ? `osa-img-${(scan.image || 'scan').replace(/[^a-z0-9]/gi, '-')}-${scan.tag || 'latest'}`
-        : `osa-dep-${(scan.package || 'scan').replace(/[^a-z0-9]/gi, '-')}`;
+    const nameSlug = s => (s||'scan').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const name =
+      type === 'lib'  ? `osa-lib-${nameSlug(scan.package || scan.pkg)}` :
+      type === 'img'  ? `osa-img-${nameSlug(scan.image)}-${scan.tag||'latest'}` :
+      type === 'dep'  ? `osa-dep-${nameSlug(scan.package)}` :
+      type === 'os'   ? `osa-os-${nameSlug(scan.package || scan.image)}` :
+                        `osa-sast-${nameSlug(scan.repo)}`;
 
     res.set({
       'Content-Type': 'application/pdf',
