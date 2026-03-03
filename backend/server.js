@@ -7,8 +7,11 @@ const session   = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 
 const { getPool, runMigrations, seedAdmin } = require('./lib/auth/db');
-const { requireAuth }            = require('./lib/auth/middleware');
-const authRoutes                 = require('./lib/auth/routes');
+const { purgeExpired }        = require('./lib/auth/scanCache');
+const { requireAuth }         = require('./lib/auth/middleware');
+const authRoutes              = require('./lib/auth/routes');
+const apiKeyRoutes            = require('./lib/auth/api-key-routes');
+const scanHistoryRoutes       = require('./lib/routes/scan-history.route');
 
 const app = express();
 
@@ -18,32 +21,42 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'"
+  );
   next();
 });
 
 // ── CORS ──────────────────────────────────────────────────────
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+// credentials:true requires explicit origin — never use '*' with credentials
+const corsOrigin = process.env.CORS_ORIGIN;
+app.use(cors(
+  corsOrigin
+    ? { origin: corsOrigin, credentials: true }
+    : { origin: false }   // same-origin only when no env override
+));
 
 // ── Body parsers ──────────────────────────────────────────────
 app.use('/api/export/pdf', express.json({ limit: '10mb' }));
 app.use(express.json({ limit: '64kb' }));
 
-// ── Static frontend (no auth needed for assets + login.html) ─
+// ── Static frontend ───────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 
 // ── Global error handler ──────────────────────────────────────
 app.use((err, req, res, _next) => {
-  console.error('[Unhandled]', err);
+  console.error('[Unhandled]', err.message);
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// ── Start: migrations first, then session + routes ───────────
+// ── Start ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 
 runMigrations()
   .then(async () => {
     await seedAdmin();
-    // ✅ Session store init AFTER migrations — table 'session' now exists
+
     app.use(session({
       store: new pgSession({
         pool: getPool(),
@@ -56,15 +69,20 @@ runMigrations()
       cookie: {
         secure: process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true',
         httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       },
     }));
 
-    // ── Auth routes (open, before guard) ──────────────────────
+    // ── Open auth routes (login / logout / me) ─────────────────
     app.use('/api', authRoutes);
 
-    // ── Auth guard on all /api/* ───────────────────────────────
+    // ── Auth guard — everything below requires login ───────────
     app.use('/api', requireAuth);
+
+    // ── Protected routes ───────────────────────────────────────
+    app.use('/api', apiKeyRoutes);
+    app.use('/api', scanHistoryRoutes);   // ← moved AFTER requireAuth
 
     // ── Redirect root → login if not authed ───────────────────
     app.get('/', (req, res, next) => {
@@ -72,30 +90,31 @@ runMigrations()
       next();
     });
 
-    // ── API routes ─────────────────────────────────────────────
     const routes = [
-      ['health',   './lib/routes/health.route'],
-      ['trivy',    './lib/routes/trivy.route'],
-      ['libscan',  './lib/routes/library-scan.route'],
-      ['depscan',  './lib/routes/dependency-scan.route'],
-      ['composer', './lib/routes/composer-scan.route'],
-      ['activity', './lib/routes/activity.route'],
-      ['export',   './lib/routes/export.route'],
-      ['grype',    './lib/routes/grype.route'],
-      ['ghscan',   './lib/routes/ghscan.route'],
+      ['health',    './lib/routes/health.route'],
+      ['trivy',     './lib/routes/trivy.route'],
+      ['libscan',   './lib/routes/library-scan.route'],
+      ['depscan',   './lib/routes/dependency-scan.route'],
+      ['composer',  './lib/routes/composer-scan.route'],
+      ['activity',  './lib/routes/activity.route'],
+      ['export',    './lib/routes/export.route'],
+      ['grype',     './lib/routes/grype.route'],
+      ['ghscan',    './lib/routes/ghscan.route'],
     ];
 
     for (const [name, modPath] of routes) {
       try {
-        console.log(`[boot] Loading route: ${name}`);
         app.use('/api', require(modPath));
         console.log(`[boot] ✅ ${name} loaded`);
       } catch (e) {
         console.error(`[boot] ❌ ${name} FAILED: ${e.message}`);
-        console.error(e.stack);
         process.exit(1);
       }
     }
+
+    // Purge expired cache entries every 6 hours
+    setInterval(purgeExpired, 6 * 60 * 60 * 1000);
+    purgeExpired();
 
     app.listen(PORT, () => console.log(`OSA Hunter → http://localhost:${PORT}`));
   })

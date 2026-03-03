@@ -50,8 +50,13 @@ async function doLibScan(){
     // /api/libscan возвращает vulns с severity, fix, aliases, refs, epss, cvss, inKev, pocs
     // Маппим в _sev/_fix/_aliases/_refs для совместимости с render кодом
     const vulns=(data.vulns||[]).map(v=>({...v,_sev:v.severity,_fix:v.fix,_aliases:v.aliases||[],_refs:v.refs||[]}));
+    const _ck = `lib:${eco.osv||eco.id}:${data.package}:${data.version||'latest'}`;
+    // Remove old entry for same key before adding fresh one
+    const ckIdx = libScans.findIndex(s => s._cacheKey === _ck);
+    if (ckIdx !== -1) libScans.splice(ckIdx, 1);
     libScans.unshift({
-      id:Date.now(),pkg:data.package,ver:data.version||'',
+      id:Date.now(), _cacheKey:_ck,
+      pkg:data.package,ver:data.version||'',
       eco:eco.id,ecoLabel:eco.label,ecoLogo:eco.logo,
       desc,vulns,toxic:data.toxic,topSev:data.topSeverity||'NONE',scannedAt:data.scannedAt,
     });
@@ -66,7 +71,34 @@ function updateLibBadge(){
   else b.style.display='none';
 }
 
-function renderLibList(){
+async function renderLibList(){
+  // Load history from server if not yet loaded this session
+  if (!window._histLoaded_lib) {
+    window._histLoaded_lib = true;
+    try {
+      const r = await fetch('/api/scans/history?type=lib', {credentials:'same-origin'});
+      if (r.ok) {
+        const {entries=[]} = await r.json();
+        const existing = new Set(libScans.map(s => s._cacheKey||String(s.id)));
+        const ECOS_MAP = {npm:'📦 npm',pypi:'🐍 PyPI',go:'🐹 Go',crates:'🦀 Rust',maven:'☕ Maven',rubygems:'💎 Ruby',nuget:'🔷 NuGet',packagist:'🐘 PHP'};
+        for (const e of entries) {
+          if (existing.has(e._cacheKey)) continue;
+          const eco = (e.ecosystem||'').toLowerCase();
+          const [logo,label] = (ECOS_MAP[eco]||'📦 '+e.ecosystem).split(' ');
+          libScans.push({
+            id:e._cacheKey, _cacheKey:e._cacheKey,
+            pkg:e.package, ver:e.version||'', eco, ecoLabel:label||eco, ecoLogo:logo||'📦',
+            desc:'', toxic:e.toxic||{found:false}, topSev:e.topSeverity||'NONE',
+            vulns:(e.vulns||[]).map(v=>({...v,_sev:v.severity,_fix:v.fix,_aliases:v.aliases||[],_refs:v.refs||[]})),
+            scannedAt:e.scannedAt||e._cachedAt,
+          });
+          existing.add(e._cacheKey);
+        }
+        libScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
+        saveLib(); updateLibBadge();
+      }
+    } catch(e) { console.warn('[history] lib:', e.message); }
+  }
   updateLibBadge();
   const el=document.getElementById('libListContent');
   if(!libScans.length){
@@ -75,6 +107,7 @@ function renderLibList(){
   }
   el.innerHTML=`
     <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn-secondary" onclick="openLibModal()">+ Add library</button>
       <button class="btn-secondary" onclick="if(confirm('Clear all?')){libScans=[];saveLib();updateLibBadge();renderLibList()}">Clear all</button>
     </div>
     <div class="tbl-wrap"><table class="tbl">

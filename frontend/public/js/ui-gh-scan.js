@@ -29,10 +29,14 @@ async function doGhScan(){
     const data = await r.json();
     if(!r.ok) throw new Error(data.error || `Error ${r.status}`);
 
+    const _repo = data.repo || url.replace('https://github.com/','');
+    const _ck = `sast:${_repo}`;
+    const ckIdx = ghScans.findIndex(s => s._cacheKey === _ck);
+    if (ckIdx !== -1) ghScans.splice(ckIdx, 1);
     ghScans.unshift({
-      id: Date.now(),
+      id: Date.now(), _cacheKey: _ck,
       url, desc,
-      repo:      data.repo      || url.replace('https://github.com/',''),
+      repo:      _repo,
       findings:  data.findings  || [],
       counts:    data.counts    || {},
       topSev:    data.topSev    || 'NONE',
@@ -46,7 +50,30 @@ async function doGhScan(){
 }
 
 // ── LIST ──────────────────────────────────────────────────────
-function renderGhList(){
+async function renderGhList(){
+  if (!window._histLoaded_sast) {
+    window._histLoaded_sast = true;
+    try {
+      const r = await fetch('/api/scans/history?type=sast', {credentials:'same-origin'});
+      if (r.ok) {
+        const {entries=[]} = await r.json();
+        const existing = new Set(ghScans.map(s=>s._cacheKey||String(s.id)));
+        for (const e of entries) {
+          if (existing.has(e._cacheKey)) continue;
+          ghScans.push({
+            id:e._cacheKey, _cacheKey:e._cacheKey,
+            url:e.url||'', desc:e.desc||'', repo:e.repo||'',
+            findings:e.findings||[], counts:e.counts||{},
+            topSev:e.topSev||'NONE', toxic:e.toxic||{found:false},
+            scannedAt:e.scannedAt||e._cachedAt,
+          });
+          existing.add(e._cacheKey);
+        }
+        ghScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
+        saveGh(); updateGhBadge();
+      }
+    } catch(e) { console.warn('[history] sast:', e.message); }
+  }
   updateGhBadge();
   const el = document.getElementById('ghListContent');
   if(!ghScans.length){
@@ -77,6 +104,7 @@ function renderGhList(){
   }).join('');
   el.innerHTML =
     '<div style="display:flex;justify-content:flex-end;margin-bottom:14px">' +
+    '<button class="btn-secondary" onclick="navTo(\'gh-form\')">+ New scan</button>' +
     '<button class="btn-secondary" onclick="if(confirm(\'Clear all GitHub scans?\')){ghScans=[];saveGh();updateGhBadge();renderGhList()}">Clear all</button></div>' +
     '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
     '<th>Repository</th><th>Description</th><th>Top Severity</th><th>Findings</th><th>Scanned</th><th style="width:28px"></th>' +

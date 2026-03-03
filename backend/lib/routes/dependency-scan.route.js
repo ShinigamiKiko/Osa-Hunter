@@ -1,6 +1,7 @@
 // routes/depscan.js — POST /api/depscan
 // deps.dev граф + OSV + Toxic для root и каждой зависимости + EPSS/CISA/NVD/PoC
 'use strict';
+const { withCache } = require('../auth/scanCache');
 const express = require('express');
 const router  = express.Router();
 const {
@@ -56,7 +57,10 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
     return res.status(400).json({ error: `Unknown system "${sys}". Supported: ${[...DEPSDEV_SYSTEMS].join(', ')}` });
 
   const pkg    = name.trim();
+  const _cacheKey = `dep:${sys}:${pkg}:${(version||'').trim()||'latest'}`;
   const osvEco = SYSTEM_TO_OSV[sys];
+
+  return withCache(_cacheKey, 'dep', res, async () => {
   console.log(`[depscan] ${sys}/${pkg}${version ? '@' + version : ''}`);
 
   // 1. Resolve version
@@ -190,12 +194,13 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
     LOW       : finalDeps.reduce((a, d) => a + d.counts.LOW,      0),
   };
 
-  res.json({
+  return {
     package: pkg, system: sys, version: version || null,
     resolvedVersion, scannedAt: new Date().toISOString(),
     toxic: rootToxic,
     info, summary, deps: finalDeps,
-  });
+  };
+  }); // withCache
 });
 
 module.exports = router;

@@ -1,5 +1,6 @@
 // routes/ghscan.route.js — POST /api/ghscan
 'use strict';
+const { withCache } = require('../auth/scanCache');
 
 const express      = require('express');
 const router       = express.Router();
@@ -73,6 +74,9 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
   if (!validGhUrl(url)) return res.status(400).json({ error: 'Only public GitHub URLs supported' });
 
   const repo     = parseRepoName(url);
+  const _cacheKey = `sast:${repo}`;
+
+  return withCache(_cacheKey, 'sast', res, async () => {
   const cloneUrl = url.endsWith('.git') ? url : `${url}.git`;
   const tmpDir   = path.join(os.tmpdir(), `ghscan-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
@@ -232,7 +236,8 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
   const toxic = await checkToxic(repo).catch(() => ({ found: false }));
   console.log(`[GHScan] ${repo} — toxic: ${toxic.found}`);
 
-  res.json({ repo, url, desc: desc||'', findings, counts, topSev, toxic, errors: (parsed.errors||[]).length, scannedAt: new Date().toISOString() });
+  return { repo, url, desc: desc||'', findings, counts, topSev, toxic, errors: (parsed.errors||[]).length, scannedAt: new Date().toISOString() };
+  }); // withCache
 });
 
 module.exports = router;

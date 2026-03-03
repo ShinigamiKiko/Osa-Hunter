@@ -50,8 +50,12 @@ async function doOsScan(){
       body:JSON.stringify({name:pkg,version:pkgVer||undefined,distro:distro.id,distroVersion:distroVer||undefined})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||`Error ${r.status}`);
+    const _ck = `os:${distro.id}:${pkg}:${pkgVer||'any'}`;
+    const ckIdx = osScans.findIndex(s => s._cacheKey === _ck);
+    if (ckIdx !== -1) osScans.splice(ckIdx, 1);
     osScans.unshift({
-      id:Date.now(),pkg,pkgVer,distro:distro.id,distroLabel:distro.label,distroLogo:distro.logo,
+      id:Date.now(), _cacheKey:_ck,
+      pkg,pkgVer,distro:distro.id,distroLabel:distro.label,distroLogo:distro.logo,
       distroVer,desc,vulns:data.vulns||[],counts:data.counts||{},
       topSev:data.topSeverity||'NONE',scannedAt:data.scannedAt||new Date().toISOString(),
     });
@@ -69,7 +73,33 @@ function updateOsBadge(){
 }
 
 // ── LIST ──────────────────────────────────────────────────────
-function renderOsList(){
+async function renderOsList(){
+  if (!window._histLoaded_os) {
+    window._histLoaded_os = true;
+    try {
+      const r = await fetch('/api/scans/history?type=os', {credentials:'same-origin'});
+      if (r.ok) {
+        const {entries=[]} = await r.json();
+        const existing = new Set(osScans.map(s=>s._cacheKey||String(s.id)));
+        const DM = {ubuntu:'🟠 Ubuntu',debian:'🌀 Debian',rhel:'🎩 RHEL',alpine:'🏔️ Alpine',suse:'🦎 SUSE'};
+        for (const e of entries) {
+          if (existing.has(e._cacheKey)) continue;
+          const [logo,label] = (DM[e.distro]||'🐧 '+e.distro).split(' ');
+          osScans.push({
+            id:e._cacheKey, _cacheKey:e._cacheKey,
+            pkg:e.package, pkgVer:e.version||'',
+            distro:e.distro, distroLabel:label||e.distro, distroLogo:logo||'🐧',
+            distroVer:e.distroVersion||'', desc:'',
+            vulns:e.vulns||[], counts:e.counts||{},
+            topSev:e.topSeverity||'NONE', scannedAt:e.scannedAt||e._cachedAt,
+          });
+          existing.add(e._cacheKey);
+        }
+        osScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
+        saveOs(); updateOsBadge();
+      }
+    } catch(e) { console.warn('[history] os:', e.message); }
+  }
   updateOsBadge();
   const el=document.getElementById('osListContent');
   if(!osScans.length){
@@ -82,6 +112,7 @@ function renderOsList(){
   }
   el.innerHTML=`
     <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn-secondary" onclick="openOsModal()">+ Add scan</button>
       <button class="btn-secondary" onclick="if(confirm('Clear all OS scans?')){osScans=[];saveOs();updateOsBadge();renderOsList()}">Clear all</button>
     </div>
     <div class="tbl-wrap"><table class="tbl">

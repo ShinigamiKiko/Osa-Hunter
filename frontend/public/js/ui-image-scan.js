@@ -21,7 +21,10 @@ async function doImageScan(){
     allV.sort((a,b)=>SEV_ORD.indexOf((a.Severity||'UNKNOWN').toUpperCase())-SEV_ORD.indexOf((b.Severity||'UNKNOWN').toUpperCase()));
     const counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,UNKNOWN:0};
     allV.forEach(v=>{ const s=(v.Severity||'UNKNOWN').toUpperCase(); if(s in counts) counts[s]++; });
-    const scan={id:Date.now(),image,tag,desc,vulns:allV,counts,scannedAt:new Date().toISOString()};
+    const _ck = `img:${image}:${tag}`;
+    const ckIdx = imgScans.findIndex(s => s._cacheKey === _ck);
+    if (ckIdx !== -1) imgScans.splice(ckIdx, 1);
+    const scan={id:Date.now(), _cacheKey:_ck, image,tag,desc,vulns:allV,counts,scannedAt:new Date().toISOString()};
     imgScans.unshift(scan);
     if(imgScans.length>20) imgScans=imgScans.slice(0,20);
     saveImg(); navTo('img-list');
@@ -30,7 +33,33 @@ async function doImageScan(){
 }
 
 // ── LIST PAGE ─────────────────────────────────────────────────
-function renderImgList(){
+async function renderImgList(){
+  if (!window._histLoaded_img) {
+    window._histLoaded_img = true;
+    try {
+      const r = await fetch('/api/scans/history?type=img', {credentials:'same-origin'});
+      if (r.ok) {
+        const {entries=[]} = await r.json();
+        const existing = new Set(imgScans.map(s=>s._cacheKey||String(s.id)));
+        for (const e of entries) {
+          if (existing.has(e._cacheKey)) continue;
+          const parts = e._cacheKey.replace(/^img:/,'').split(':');
+          const tag=parts.pop(), image=parts.join(':');
+          const allV=[]; (e.Results||[]).forEach(t=>(t.Vulnerabilities||[]).forEach(v=>allV.push(v)));
+          const counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,UNKNOWN:0};
+          allV.forEach(v=>{const s=(v.Severity||'UNKNOWN').toUpperCase();if(s in counts)counts[s]++;});
+          imgScans.push({
+            id:e._cacheKey, _cacheKey:e._cacheKey,
+            image, tag, desc:'', vulns:allV, counts,
+            scannedAt:e.scannedAt||e._cachedAt,
+          });
+          existing.add(e._cacheKey);
+        }
+        imgScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
+        saveImg();
+      }
+    } catch(e) { console.warn('[history] img:', e.message); }
+  }
   const el=document.getElementById('imgListContent');
   if(!imgScans.length){
     el.innerHTML=`<div class="empty">
@@ -41,7 +70,8 @@ function renderImgList(){
     </div>`; return;
   }
   el.innerHTML=`
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px">
+      <button class="btn-secondary" onclick="navTo('img-form')">+ New scan</button>
       <button class="btn-secondary" onclick="if(confirm('Clear all image scans?')){imgScans=[];saveImg();renderImgList()}">Clear all</button>
     </div>
     <div class="tbl-wrap">
@@ -52,9 +82,10 @@ function renderImgList(){
         </tr></thead>
         <tbody>
           ${imgScans.map((s,i)=>{
-            const topS=['CRITICAL','HIGH','MEDIUM','LOW'].find(sv=>s.counts[sv])||'NONE';
-            const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>s.counts[sv])
-              .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${s.counts[sv]} ${sv}</span>`).join(' ');
+            const _c=s.counts||{}; const _v=s.vulns||[];
+            const topS=['CRITICAL','HIGH','MEDIUM','LOW'].find(sv=>_c[sv])||'NONE';
+            const pills=['CRITICAL','HIGH','MEDIUM','LOW'].filter(sv=>_c[sv])
+              .map(sv=>`<span class="sev ${sv}" style="font-size:9px;padding:2px 6px">${_c[sv]} ${sv}</span>`).join(' ');
             return`<tr class="row" onclick="navTo('img-detail',{scan:imgScans[${i}]})">
               <td><div style="display:flex;align-items:center;gap:9px">
                 <div style="flex-shrink:0">${whaleSmallSvg()}</div>
@@ -63,9 +94,9 @@ function renderImgList(){
               <td><div class="row-desc">${esc(s.desc||'—')}</div></td>
               <td><span class="row-ver">${esc(s.tag)}</span></td>
               <td><span class="sev ${topS}">${topS}</span></td>
-              <td>${s.vulns.length===0
+              <td>${_v.length===0
                 ?'<span style="color:var(--l);font-size:11px">✓ clean</span>'
-                :(pills||`<span style="color:var(--muted)">${s.vulns.length}</span>`)}</td>
+                :(pills||`<span style="color:var(--muted)">${_v.length}</span>`)}</td>
               <td style="color:var(--muted);font-size:10px;white-space:nowrap">${fmtDate(s.scannedAt)}</td>
               <td><button onclick="event.stopPropagation();imgScans.splice(${i},1);saveImg();renderImgList()"
                 style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:3px 5px;border-radius:4px"

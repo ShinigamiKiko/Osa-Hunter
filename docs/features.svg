@@ -1,0 +1,110 @@
+<svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" width="900" height="200">
+  <defs>
+    <clipPath id="fclip"><rect width="900" height="200" rx="12"/></clipPath>
+  </defs>
+  <g clip-path="url(#fclip)">
+    <rect width="900" height="200" fill="#070d0b" rx="12"/>
+
+    <!-- Feature cards -->
+    <!-- Card template: 130px wide, gap 14px, start x=20 -->
+
+    <!-- 1: Library -->
+    <g transform="translate(20,20)">
+      <rect width="124" height="160" rx="10" fill="#0c1510" stroke="#1a2d20" stroke-width="1"/>
+      <text x="62" y="38" text-anchor="middle" font-size="26">📦</text>
+      <text x="62" y="62" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#5ef0c8" font-weight="700" letter-spacing="1">LIBRARY</text>
+      <text x="62" y="80" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#4a6050">OSV Database</text>
+      <text x="62" y="97" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#4a6050">CVSS · EPSS</text>
+      <text x="62" y="114" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#4a6050">CISA KEV · PoC</text>
+      <rect x="12" y="130" width="100" height="16" rx="4" fill="rgba(94,240,200,0.08)" stroke="rgba(94,240,200,0.2)" stroke-width="1"/>
+      <text x="62" y="142" text-anchor="middle" font-family="'Courier New',monospace" font-size="8" fill="#5ef0c8">npm pypi go rust</text>
+      <rect x="0" y="0" width="124" height="160" rx="10" fill="transparent" stroke="#5ef0c8" stroke-width="0" opacity="0">
+        <animate attributeName="stroke-width" values="0;1.5;0" dur="3s" begin="0s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0;0.5;0" dur="3s" begin="0s" repeatCount="indefinite"/>
+      </rect>
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.1s" fill="freeze"/>
+    </g>
+
+    <!-- 2: Dependency -->
+    <g transform="translate(158,20)">
+      <rect width="124" height="160" rx="10" fill="#0c1015" stroke="#1a2030" stroke-width="1"/>
+      <text x="62" y="38" text-anchor="middle" font-size="26">🔗</text>
+      <text x="62" y="62" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#a78bfa" font-weight="700" letter-spacing="1">DEPENDENCY</text>
+      <text x="62" y="80" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#4a5060">deps.dev graph</text>
+      <text x="62" y="97" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#4a5060">Full dep tree</text>
+      <text x="62" y="114" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#4a5060">Transitive vulns</text>
+      <rect x="12" y="130" width="100" height="16" rx="4" fill="rgba(167,139,250,0.08)" stroke="rgba(167,139,250,0.2)" stroke-width="1"/>
+      <text x="62" y="142" text-anchor="middle" font-family="'Courier New',monospace" font-size="8" fill="#a78bfa">6 ecosystems</text>
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.25s" fill="freeze"/>
+    </g>
+
+    <!-- 3: Composer -->
+    <g transform="translate(296,20)">
+      <rect width="124" height="160" rx="10" fill="#10100c" stroke="#25200a" stroke-width="1"/>
+      <text x="62" y="38" text-anchor="middle" font-size="26">🐘</text>
+      <text x="62" y="62" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#facc15" font-weight="700" letter-spacing="1">COMPOSER</text>
+      <text x="62" y="80" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#504a20">Packagist API</text>
+      <text x="62" y="97" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#504a20">PHP dep tree</text>
+      <text x="62" y="114" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#504a20">require resolve</text>
+      <rect x="12" y="130" width="100" height="16" rx="4" fill="rgba(250,204,21,0.08)" stroke="rgba(250,204,21,0.2)" stroke-width="1"/>
+      <text x="62" y="142" text-anchor="middle" font-family="'Courier New',monospace" font-size="8" fill="#facc15">PHP / Packagist</text>
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.4s" fill="freeze"/>
+    </g>
+
+    <!-- 4: Image -->
+    <g transform="translate(434,20)">
+      <rect width="124" height="160" rx="10" fill="#080f15" stroke="#0a2030" stroke-width="1"/>
+      <text x="62" y="38" text-anchor="middle" font-size="26">🐋</text>
+      <text x="62" y="62" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#38bdf8" font-weight="700" letter-spacing="1">IMAGE</text>
+      <text x="62" y="80" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#204050">Trivy powered</text>
+      <text x="62" y="97" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#204050">Docker images</text>
+      <text x="62" y="114" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#204050">OS + lang pkgs</text>
+      <rect x="12" y="130" width="100" height="16" rx="4" fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.2)" stroke-width="1"/>
+      <text x="62" y="142" text-anchor="middle" font-family="'Courier New',monospace" font-size="8" fill="#38bdf8">any registry</text>
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.55s" fill="freeze"/>
+    </g>
+
+    <!-- 5: OS -->
+    <g transform="translate(572,20)">
+      <rect width="124" height="160" rx="10" fill="#0d0c10" stroke="#20182a" stroke-width="1"/>
+      <text x="62" y="38" text-anchor="middle" font-size="26">🐧</text>
+      <text x="62" y="62" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#e879f9" font-weight="700" letter-spacing="1">OS PACKAGES</text>
+      <text x="62" y="80" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#40304a">Grype PURL</text>
+      <text x="62" y="97" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#40304a">Risk scoring</text>
+      <text x="62" y="114" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#40304a">CVSS × EPSS</text>
+      <rect x="12" y="130" width="100" height="16" rx="4" fill="rgba(232,121,249,0.08)" stroke="rgba(232,121,249,0.2)" stroke-width="1"/>
+      <text x="62" y="142" text-anchor="middle" font-family="'Courier New',monospace" font-size="8" fill="#e879f9">5 distros</text>
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.7s" fill="freeze"/>
+    </g>
+
+    <!-- 6: GitHub -->
+    <g transform="translate(710,20)">
+      <rect width="124" height="160" rx="10" fill="#0f0c08" stroke="#2a1f08" stroke-width="1"/>
+      <text x="62" y="38" text-anchor="middle" font-size="26">🔍</text>
+      <text x="62" y="62" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#fb923c" font-weight="700" letter-spacing="1">GITHUB SAST</text>
+      <text x="62" y="80" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#504030">Semgrep rules</text>
+      <text x="62" y="97" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#504030">Public repos</text>
+      <text x="62" y="114" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#504030">Code patterns</text>
+      <rect x="12" y="130" width="100" height="16" rx="4" fill="rgba(251,146,60,0.08)" stroke="rgba(251,146,60,0.2)" stroke-width="1"/>
+      <text x="62" y="142" text-anchor="middle" font-family="'Courier New',monospace" font-size="8" fill="#fb923c">any public repo</text>
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.85s" fill="freeze"/>
+    </g>
+
+    <!-- Animated connecting dots between cards -->
+    <circle cx="145" cy="100" r="3" fill="#1a3020">
+      <animate attributeName="fill" values="#1a3020;#5ef0c8;#1a3020" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="283" cy="100" r="3" fill="#1a2030">
+      <animate attributeName="fill" values="#1a2030;#a78bfa;#1a2030" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="421" cy="100" r="3" fill="#25200a">
+      <animate attributeName="fill" values="#25200a;#facc15;#25200a" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="559" cy="100" r="3" fill="#0a2030">
+      <animate attributeName="fill" values="#0a2030;#38bdf8;#0a2030" dur="2s" begin="0.9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="697" cy="100" r="3" fill="#20182a">
+      <animate attributeName="fill" values="#20182a;#e879f9;#20182a" dur="2s" begin="1.2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+</svg>

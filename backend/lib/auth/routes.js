@@ -5,6 +5,10 @@ const bcrypt   = require('bcryptjs');
 const router   = express.Router();
 const { getPool } = require('./db');
 const { requireAdmin } = require('./middleware');
+const { RateLimiter } = require('../shared/primitives');
+
+// 10 login attempts per minute per IP
+const loginLimiter = new RateLimiter(10, 60000);
 
 const SALT_ROUNDS = 12;
 
@@ -19,20 +23,12 @@ router.get('/auth/status', async (req, res) => {
   }
 });
 
-// ── GET /api/auth/status — public, no auth required ─────────
-// Returns whether any users exist (for first-run detection on login page)
-router.get('/auth/status', async (req, res) => {
-  try {
-    const { rows } = await getPool().query('SELECT COUNT(*) FROM users');
-    const hasUsers = parseInt(rows[0].count, 10) > 0;
-    return res.json({ hasUsers });
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
-  }
-});
-
 // ── POST /api/auth/login ──────────────────────────────────────
-router.post('/auth/login', async (req, res) => {
+router.post('/auth/login', (req, res, next) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+  if (!loginLimiter.check(ip)) return res.status(429).json({ error: 'Too many login attempts. Please wait.' });
+  next();
+}, async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password)
     return res.status(400).json({ error: 'username and password required' });

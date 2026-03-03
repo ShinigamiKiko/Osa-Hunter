@@ -35,14 +35,14 @@ function _emptyRadar(){
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────
-function navTo(page, opts={}){
+async function navTo(page, opts={}){
   // Ensure page-admin div exists before trying to activate it
   if(page==='admin' && !document.getElementById('page-admin')){
     const d=document.createElement('div');
     d.id='page-admin'; d.className='page';
     d.innerHTML='<div id="adminContent"></div>';
-    document.querySelector('.main')||document.body.appendChild(d);
-    (document.querySelector('.main')||document.body).appendChild(d);
+    const container = document.querySelector('.main') || document.body;
+    container.appendChild(d);
   }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const pageEl = document.getElementById('page-'+page);
@@ -75,7 +75,7 @@ function navTo(page, opts={}){
   if(page==='lib-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Library Scan</span>`;
     ta.innerHTML='';
-    renderLibList();
+    await renderLibList();
 
   }else if(page==='lib-detail'){
     const s=opts.scan;
@@ -92,7 +92,7 @@ function navTo(page, opts={}){
   }else if(page==='dep-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Dependency Scan</span>`;
     ta.innerHTML='';
-    renderDepList();
+    await renderDepList();
 
   }else if(page==='dep-detail'){
     const s=opts.scan;
@@ -127,7 +127,7 @@ function navTo(page, opts={}){
   }else if(page==='img-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">Image Scan</span>`;
     ta.innerHTML='';
-    renderImgList();
+    await renderImgList();
 
   }else if(page==='img-detail'){
     const s=opts.scan;
@@ -144,7 +144,7 @@ function navTo(page, opts={}){
   }else if(page==='os-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">OS Packages</span>`;
     ta.innerHTML='';
-    renderOsList();
+    await renderOsList();
 
   }else if(page==='os-detail'){
     const s=opts.scan;
@@ -165,7 +165,7 @@ function navTo(page, opts={}){
   }else if(page==='gh-list'){
     tl.innerHTML=`<span style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#fff">GitHub Scan</span>`;
     ta.innerHTML='';
-    renderGhList();
+    await renderGhList();
 
   }else if(page==='gh-detail'){
     const s=opts.scan;

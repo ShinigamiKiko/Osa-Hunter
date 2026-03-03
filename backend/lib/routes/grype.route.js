@@ -2,6 +2,7 @@
 // Scans a single OS package via grype PURL (no image pull needed)
 // Returns fully enriched vulns: CVSS, EPSS, KEV, PoC, Risk
 'use strict';
+const { withCache } = require('../auth/scanCache');
 
 const express            = require('express');
 const router             = express.Router();
@@ -54,6 +55,9 @@ router.post('/osscan', async (req, res) => {
 
   if (!name)   return res.status(400).json({ error: 'Package name is required' });
   if (!distro) return res.status(400).json({ error: 'Distro is required' });
+
+  const _cacheKey = `os:${distro}:${name}:${version||'any'}`;
+  return withCache(_cacheKey, 'os', res, async () => {
   if (!validPkg(name)) return res.status(400).json({ error: 'Invalid package name' });
   if (version && !validPkg(version)) return res.status(400).json({ error: 'Invalid version' });
   if (distroVersion && !validDistroVer(distroVersion)) return res.status(400).json({ error: 'Invalid distro version' });
@@ -167,7 +171,7 @@ router.post('/osscan', async (req, res) => {
     const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
     vulns.forEach(v => { if (v.severity in counts) counts[v.severity]++; });
 
-    res.json({
+    return {
       package:      name,
       version:      version || null,
       distro,
@@ -176,12 +180,13 @@ router.post('/osscan', async (req, res) => {
       vulns,
       counts,
       scannedAt:    new Date().toISOString(),
-    });
+    };
 
   } catch (e) {
     console.error('[Grype] Error:', e.message);
-    res.status(500).json({ error: e.message || 'Grype scan failed' });
+    throw e; // withCache will propagate, express error handler catches
   }
+  }); // withCache
 });
 
 module.exports = router;

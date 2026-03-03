@@ -75,7 +75,10 @@ async function doDepScan(){
         withVulns : data.deps.filter(d=>(d.vulns||[]).length>0).length,
       };
     }
-    const scan={...data,desc,id:Date.now()};
+    const _ck = `dep:${(data.system||'').toUpperCase()}:${data.package||''}:${data.resolvedVersion||data.version||'latest'}`;
+    const ckIdx = depScans.findIndex(s => s._cacheKey === _ck);
+    if (ckIdx !== -1) depScans.splice(ckIdx, 1);
+    const scan={...data,desc,id:Date.now(),_cacheKey:_ck};
     depScans.unshift(scan);
     if(depScans.length>20) depScans=depScans.slice(0,20);
     saveDep(); closeDepModal(); updateDepBadge();

@@ -5,6 +5,8 @@
     .then(({ user }) => {
       window._authUser = user;
       injectUserChip(user);
+      // Render the default page NOW — after auth is confirmed
+      navTo('lib-list');
     })
     .catch(() => {
       window.location.replace('/login.html');
@@ -41,7 +43,7 @@
                     background:#0b0f18;border:1px solid #1a2030;border-radius:10px;
                     min-width:160px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:9999">
           ${user.role === 'admin' ? `
-          <div onclick="navTo('admin');document.getElementById('authMenu').classList.remove('open')"
+          <div onclick="navTo('admin');document.getElementById('authMenu')?.classList.remove('open')"
                style="padding:10px 14px;font-size:12px;color:#8a9ab0;cursor:pointer;
                       display:flex;align-items:center;gap:8px"
                onmouseover="this.style.background='#111827'"

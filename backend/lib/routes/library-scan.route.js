@@ -1,6 +1,7 @@
 // routes/libscan.js — POST /api/libscan
 // OSV + EPSS + CISA KEV + NVD CVSS + PoC + Toxic — всё в одном ответе
 'use strict';
+const { withCache } = require('../auth/scanCache');
 const express = require('express');
 const router  = express.Router();
 const {
@@ -22,6 +23,9 @@ router.post('/libscan', rateLimit(scanLimiter), async (req, res) => {
   const pkg = name.trim();
   const eco = ecosystem.trim();
   const ver = (version || '').trim() || null;
+  const _cacheKey = `lib:${eco}:${pkg}:${ver||'latest'}`;
+
+  return withCache(_cacheKey, 'lib', res, async () => {
   console.log(`[libscan] ${eco}/${pkg}${ver ? '@' + ver : ''}`);
 
   // 1. OSV
@@ -92,7 +96,8 @@ router.post('/libscan', rateLimit(scanLimiter), async (req, res) => {
   for (const v of enriched) if (v.severity in summary) summary[v.severity]++;
   const topSeverity = SEV_ORD.find(s => summary[s] > 0) || 'NONE';
 
-  res.json({ package: pkg, ecosystem: eco, version: ver, scannedAt: new Date().toISOString(), toxic, topSeverity, summary, vulns: enriched });
+  return { package: pkg, ecosystem: eco, version: ver, scannedAt: new Date().toISOString(), toxic, topSeverity, summary, vulns: enriched };
+  }); // withCache
 });
 
 module.exports = router;
