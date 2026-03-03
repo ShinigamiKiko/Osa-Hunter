@@ -31,6 +31,23 @@ Library CVEs · Dependency trees · Docker images · OS packages · GitHub SAST 
 | 🐧 | **OS Package Scan** | Single package on Ubuntu / Debian / RHEL / Alpine / SUSE |
 | 🔍 | **GitHub SAST** | Public repo static analysis via Semgrep |
 
+
+---
+
+## ☠ Toxic Repo Detection
+
+![Toxic Repo](docs/toxic.svg)
+
+Every scanned package is checked against a curated blocklist of repositories known to contain malicious or harmful code. If a dependency traces back to one of these repos — you'll know before it reaches production.
+
+| Category | Description |
+|---|---|
+| 💀 DDoS Tool | Packages designed to flood networks or amplify attacks |
+| 🦠 Malware | Trojans, ransomware, or data-stealing payloads |
+| ⚡ Hostile Actions | Code that destroys data or sabotages systems |
+| 🚫 IP Blocking | Geofencing or censorship embedded in a library |
+| 📢 Political Slogan | Activist payloads that hijack package behavior |
+
 ---
 
 ## Quick Start

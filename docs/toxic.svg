@@ -1,0 +1,89 @@
+<svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" width="900" height="200">
+  <defs>
+    <clipPath id="tclip"><rect width="900" height="200" rx="12"/></clipPath>
+    <filter id="redglow">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="rbg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#120608"/>
+      <stop offset="100%" stop-color="#070305"/>
+    </radialGradient>
+    <radialGradient id="rglow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff3b30" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ff3b30" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#tclip)">
+    <rect width="900" height="200" fill="url(#rbg)" rx="12"/>
+    <ellipse cx="450" cy="100" rx="400" ry="120" fill="url(#rglow)"/>
+
+    <!-- Skull icon -->
+    <g transform="translate(48, 60)">
+      <text font-size="56" text-anchor="middle" x="0" y="52" filter="url(#redglow)">☠</text>
+      <animate attributeName="opacity" values="1;0.5;1" dur="2.4s" repeatCount="indefinite"/>
+    </g>
+
+    <!-- Title -->
+    <text x="112" y="82" font-family="'Courier New',monospace" font-size="22" font-weight="900" fill="#ff3b30" letter-spacing="1" filter="url(#softglow)">TOXIC REPO DETECTION</text>
+    <text x="112" y="106" font-family="'Courier New',monospace" font-size="12" fill="#6a3030" letter-spacing="0.5">OSA Hunter checks every scanned package against a curated blocklist of malicious repositories</text>
+
+    <!-- Divider -->
+    <line x1="112" y1="118" x2="870" y2="118" stroke="#2a0f0f" stroke-width="1"/>
+
+    <!-- Category cards -->
+    <!-- DDoS -->
+    <g transform="translate(112, 130)">
+      <rect width="140" height="44" rx="8" fill="#1a0505" stroke="rgba(255,59,48,0.25)" stroke-width="1"/>
+      <text x="70" y="17" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#ff3b30" font-weight="700">💀 DDoS Tool</text>
+      <text x="70" y="33" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#5a2525">network flood attacks</text>
+      <animate attributeName="opacity" values="0;1" dur="0.2s" begin="0.1s" fill="freeze"/>
+    </g>
+
+    <!-- Malware -->
+    <g transform="translate(264, 130)">
+      <rect width="140" height="44" rx="8" fill="#1a0505" stroke="rgba(255,59,48,0.25)" stroke-width="1"/>
+      <text x="70" y="17" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#ff3b30" font-weight="700">🦠 Malware</text>
+      <text x="70" y="33" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#5a2525">trojans · ransomware</text>
+      <animate attributeName="opacity" values="0;1" dur="0.2s" begin="0.2s" fill="freeze"/>
+    </g>
+
+    <!-- Hostile -->
+    <g transform="translate(416, 130)">
+      <rect width="140" height="44" rx="8" fill="#1a0505" stroke="rgba(255,59,48,0.25)" stroke-width="1"/>
+      <text x="70" y="17" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#ff3b30" font-weight="700">⚡ Hostile Actions</text>
+      <text x="70" y="33" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#5a2525">data destruction</text>
+      <animate attributeName="opacity" values="0;1" dur="0.2s" begin="0.3s" fill="freeze"/>
+    </g>
+
+    <!-- IP Blocking -->
+    <g transform="translate(568, 130)">
+      <rect width="140" height="44" rx="8" fill="#1a0505" stroke="rgba(255,59,48,0.25)" stroke-width="1"/>
+      <text x="70" y="17" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#ff3b30" font-weight="700">🚫 IP Blocking</text>
+      <text x="70" y="33" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#5a2525">geofencing · censorship</text>
+      <animate attributeName="opacity" values="0;1" dur="0.2s" begin="0.4s" fill="freeze"/>
+    </g>
+
+    <!-- Political -->
+    <g transform="translate(720, 130)">
+      <rect width="148" height="44" rx="8" fill="#1a0505" stroke="rgba(255,59,48,0.25)" stroke-width="1"/>
+      <text x="74" y="17" text-anchor="middle" font-family="'Courier New',monospace" font-size="10" fill="#ff3b30" font-weight="700">📢 Political Slogan</text>
+      <text x="74" y="33" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#5a2525">activist payloads</text>
+      <animate attributeName="opacity" values="0;1" dur="0.2s" begin="0.5s" fill="freeze"/>
+    </g>
+
+    <!-- Pulsing border on whole card -->
+    <rect x="1" y="1" width="898" height="198" rx="12" fill="none" stroke="#ff3b30" stroke-width="1" opacity="0">
+      <animate attributeName="opacity" values="0;0.2;0" dur="3s" repeatCount="indefinite"/>
+    </rect>
+
+    <!-- Scan line -->
+    <rect x="0" y="197" width="60" height="3" rx="1" fill="#ff3b30" opacity="0.4">
+      <animateTransform attributeName="transform" type="translate" values="-60,0;900,0" dur="3s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+</svg>
