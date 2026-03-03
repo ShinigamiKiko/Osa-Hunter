@@ -1,6 +1,6 @@
 <div align="center">
 
-![OSA Hunter Banner](docs/banner.svg?v=2)
+![OSA Hunter Banner](docs/banner-v2.svg)
 
 <br/>
 
