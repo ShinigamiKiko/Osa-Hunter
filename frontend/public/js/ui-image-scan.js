@@ -34,32 +34,7 @@ async function doImageScan(){
 
 // ── LIST PAGE ─────────────────────────────────────────────────
 async function renderImgList(){
-  if (!window._histLoaded_img) {
-    window._histLoaded_img = true;
-    try {
-      const r = await fetch('/api/scans/history?type=img', {credentials:'same-origin'});
-      if (r.ok) {
-        const {entries=[]} = await r.json();
-        const existing = new Set(imgScans.map(s=>s._cacheKey||String(s.id)));
-        for (const e of entries) {
-          if (existing.has(e._cacheKey)) continue;
-          const parts = e._cacheKey.replace(/^img:/,'').split(':');
-          const tag=parts.pop(), image=parts.join(':');
-          const allV=[]; (e.Results||[]).forEach(t=>(t.Vulnerabilities||[]).forEach(v=>allV.push(v)));
-          const counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,UNKNOWN:0};
-          allV.forEach(v=>{const s=(v.Severity||'UNKNOWN').toUpperCase();if(s in counts)counts[s]++;});
-          imgScans.push({
-            id:e._cacheKey, _cacheKey:e._cacheKey,
-            image, tag, desc:'', vulns:allV, counts,
-            scannedAt:e.scannedAt||e._cachedAt,
-          });
-          existing.add(e._cacheKey);
-        }
-        imgScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
-        saveImg();
-      }
-    } catch(e) { console.warn('[history] img:', e.message); }
-  }
+  // History pre-loaded by ui-scan-history.js (navTo hook)
   const el=document.getElementById('imgListContent');
   if(!imgScans.length){
     el.innerHTML=`<div class="empty">

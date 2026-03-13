@@ -11,8 +11,13 @@ const CVE_RE = /^CVE-\d{4}-\d{4,}$/i;
 
 const IMAGE_RE = /^[a-z0-9\-_./:@]+$/i;
 
+
+// Severity ordering used across all scan routes
+const SEV_ORD = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNKNOWN', 'NONE'];
+
 module.exports = {
   EPSS_URL, OSV_URL, CISA_URL, POC_BASE,
   MAX_PKG_NAME, MAX_CVE_BATCH, CVE_RE,
   IMAGE_RE,
+  SEV_ORD,
 };

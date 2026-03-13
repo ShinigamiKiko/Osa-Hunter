@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 
 
-ARG TRIVY_VERSION=0.58.2
+ARG TRIVY_VERSION=0.69.3
 RUN curl -sL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
     | tar -xz -C /usr/local/bin trivy && trivy --version
 

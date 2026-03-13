@@ -72,33 +72,7 @@ function updateLibBadge(){
 }
 
 async function renderLibList(){
-  // Load history from server if not yet loaded this session
-  if (!window._histLoaded_lib) {
-    window._histLoaded_lib = true;
-    try {
-      const r = await fetch('/api/scans/history?type=lib', {credentials:'same-origin'});
-      if (r.ok) {
-        const {entries=[]} = await r.json();
-        const existing = new Set(libScans.map(s => s._cacheKey||String(s.id)));
-        const ECOS_MAP = {npm:'📦 npm',pypi:'🐍 PyPI',go:'🐹 Go',crates:'🦀 Rust',maven:'☕ Maven',rubygems:'💎 Ruby',nuget:'🔷 NuGet',packagist:'🐘 PHP'};
-        for (const e of entries) {
-          if (existing.has(e._cacheKey)) continue;
-          const eco = (e.ecosystem||'').toLowerCase();
-          const [logo,label] = (ECOS_MAP[eco]||'📦 '+e.ecosystem).split(' ');
-          libScans.push({
-            id:e._cacheKey, _cacheKey:e._cacheKey,
-            pkg:e.package, ver:e.version||'', eco, ecoLabel:label||eco, ecoLogo:logo||'📦',
-            desc:'', toxic:e.toxic||{found:false}, topSev:e.topSeverity||'NONE',
-            vulns:(e.vulns||[]).map(v=>({...v,_sev:v.severity,_fix:v.fix,_aliases:v.aliases||[],_refs:v.refs||[]})),
-            scannedAt:e.scannedAt||e._cachedAt,
-          });
-          existing.add(e._cacheKey);
-        }
-        libScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
-        saveLib(); updateLibBadge();
-      }
-    } catch(e) { console.warn('[history] lib:', e.message); }
-  }
+  // History pre-loaded by ui-scan-history.js (navTo hook)
   updateLibBadge();
   const el=document.getElementById('libListContent');
   if(!libScans.length){
@@ -145,7 +119,7 @@ function renderLibDetail(s){
     <div class="detail-header">
       <div class="detail-icon green" style="font-size:22px">${s.ecoLogo}</div>
       <div class="detail-info">
-        <div class="detail-name" style="font-size:27px">${esc(s.pkg)}${s.ver?` <span style="color:var(--muted);font-size:20px;font-weight:400">v${esc(s.ver)}</span>`:''}</div>
+        <div class="detail-name" style="font-size:27px">${esc(s.pkg)}${s.ver?` <span style="color:var(--muted);font-size:20px;font-weight:400">${s.ver.startsWith('v') ? esc(s.ver) : 'v'+esc(s.ver)}</span>`:''}</div>
         <div class="detail-sub">${esc(s.ecoLabel)} · ${esc(s.desc||'No description')} · scanned ${fmtDate(s.scannedAt)}</div>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px">
           ${_toxicBadgeHtml(s.toxic)}

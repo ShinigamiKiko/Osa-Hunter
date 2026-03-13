@@ -44,14 +44,30 @@ async function withCache(key, type, res, scanFn) {
     return res.status(status).json({ error: e.message });
   }
 
+  // Guard: scanFn must never return the Express res object.
+  // If it does (e.g. a route did `return res.json()` inside the callback),
+  // res is already sent — log and bail out to avoid circular-ref crash.
+  if (result != null && typeof result === 'object' && typeof result.socket !== 'undefined') {
+    console.error(`[cache] scanFn returned res/ServerResponse for key "${key}" — fix error paths to throw ScanError`);
+    return;
+  }
+
   // 3. Write to cache — JSON.stringify required, pg does NOT auto-serialize plain objects
+  let serialized;
+  try {
+    serialized = JSON.stringify(result);
+  } catch (e) {
+    console.error(`[cache] SERIALIZE ERROR for key "${key}":`, e.message);
+    return res.json(result); // still send the response even if caching fails
+  }
+
   try {
     await pool.query(
       `INSERT INTO scan_cache (cache_key, type, payload, scanned_at)
        VALUES ($1, $2, $3::jsonb, NOW())
        ON CONFLICT (cache_key)
        DO UPDATE SET payload = EXCLUDED.payload, scanned_at = NOW()`,
-      [key, type, JSON.stringify(result)]
+      [key, type, serialized]
     );
     console.log(`[cache] SAVE ${key}`);
   } catch (e) {

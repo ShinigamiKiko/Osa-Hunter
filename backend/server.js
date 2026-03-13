@@ -100,6 +100,7 @@ runMigrations()
       ['export',    './lib/routes/export.route'],
       ['grype',     './lib/routes/grype.route'],
       ['ghscan',    './lib/routes/ghscan.route'],
+      ['cache',     './lib/routes/cache.route'],
     ];
 
     for (const [name, modPath] of routes) {

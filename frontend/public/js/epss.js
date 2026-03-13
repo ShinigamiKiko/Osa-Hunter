@@ -7,14 +7,7 @@ async function fetchEPSS(cves){
   }catch{ return {}; }
 }
 
-function epssHtml(score){
-  if(!score) return '<span style="color:var(--muted);font-size:11px">not found</span>';
-  const pct=(score.epss*100).toFixed(2);
-  const cls=score.epss>=.1?'hi':score.epss>=.01?'mi':'';
-  return `<div class="epss-row"><span class="epss-pct ${cls}">${pct}%</span>
-    <div class="epss-bar"><div class="epss-fill ${cls}" style="width:${Math.min(score.epss*500,100)}%"></div></div>
-    <span style="font-size:10px;color:var(--muted)">${(score.percentile*100).toFixed(0)}th pct</span></div>`;
-}
+// epssHtml lives in enrich.js (loaded after this file)
 
 async function pollEpssStatus(){
   try{

@@ -4,35 +4,32 @@
 'use strict';
 const { withCache } = require('../auth/scanCache');
 
-const express            = require('express');
-const router             = express.Router();
-const { execFile }       = require('child_process');
-const { scanLimiter, validateImage } = require('../shared');
-const { fetchEpss, fetchCvss, fetchPocs } = require('../shared/enrichment');
-const { getCisaSet }     = require('../shared/cisaKev');
+const express      = require('express');
+const router       = express.Router();
+const { execFile } = require('child_process');
+const {
+  SEV_ORD, scanLimiter, getCisaSet,
+  fetchEpss, fetchCvss, fetchPocs, fetchOsvDesc,
+  calcRisk,
+} = require('../shared');
 
 // ── Distro → PURL type mapping ────────────────────────────────
 const DISTRO_MAP = {
-  ubuntu: { type: 'deb', ns: 'ubuntu'    },
-  debian: { type: 'deb', ns: 'debian'    },
-  rhel:   { type: 'rpm', ns: 'redhat'    },
-  alpine: { type: 'apk', ns: 'alpine'    },
-  suse:   { type: 'rpm', ns: 'opensuse'  },
+  // ns     = PURL namespace  → grype resolves vuln DB namespace from this
+  // distro = grype --distro flag value (used when no distroVersion provided too)
+  //
+  // SUSE: grype's internal vuln DB uses "opensuse-leap:distro:opensuse-leap:15.x"
+  // So the PURL namespace must also be "opensuse-leap" for grype to match it.
+  // (OSV/purl-spec prefers bare "opensuse", but grype ignores that without a hit)
+  ubuntu: { type: 'deb', ns: 'ubuntu',       distro: 'ubuntu'        },
+  debian: { type: 'deb', ns: 'debian',       distro: 'debian'        },
+  rhel:   { type: 'rpm', ns: 'redhat',       distro: 'rhel'          },
+  alpine: { type: 'apk', ns: 'alpine',       distro: 'alpine'        },
+  suse:   { type: 'rpm', ns: 'opensuse-leap',distro: 'opensuse-leap' },
+  sles:   { type: 'rpm', ns: 'sles',          distro: 'sles'          },
 };
 
-// ── Risk score (CVSS × EPSS weight) ──────────────────────────
-function calcRisk(cvss, epss) {
-  const cvssScore = cvss?.cvss3?.score ?? cvss?.cvss2?.score ?? 0;
-  const epssScore = epss?.epss ?? 0;
-  // Weighted: 60% CVSS (normalised to 0-1) + 40% EPSS probability
-  const raw = (cvssScore / 10) * 0.6 + epssScore * 0.4;
-  const pct = Math.round(raw * 100);
-  const label = pct >= 80 ? 'CRITICAL' : pct >= 50 ? 'HIGH' : pct >= 25 ? 'MEDIUM' : 'LOW';
-  return { score: pct, label };
-}
-
 // ── Top severity from grype matches ──────────────────────────
-const SEV_ORD = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNKNOWN', 'NEGLIGIBLE'];
 function topSev(matches) {
   let best = 'NONE';
   for (const m of matches) {
@@ -69,12 +66,14 @@ router.post('/osscan', async (req, res) => {
   const purl = `pkg:${dm.type}/${dm.ns}/${encodeURIComponent(name)}${version ? '@' + version : ''}`;
 
   // Build --distro flag: ubuntu:22.04
-  const distroFlag = distroVersion ? `${dm.ns}:${distroVersion}` : dm.ns;
+  const distroFlag = distroVersion ? `${dm.distro}:${distroVersion}` : dm.distro;
 
   console.log(`[Grype] Scanning PURL: ${purl} --distro ${distroFlag} (ip: ${ip})`);
 
   // ── Run grype ─────────────────────────────────────────────
-  const args = [purl, '--distro', distroFlag, '-o', 'json', '-q'];
+  // --add-cpes-if-none: critical for Alpine/SUSE where secdb entries may
+  // not match without CPE-based fallback matching
+  const args = [purl, '--distro', distroFlag, '--add-cpes-if-none', '-o', 'json', '-q'];
 
   try {
     const raw = await new Promise((resolve, reject) => {
@@ -106,6 +105,19 @@ router.post('/osscan', async (req, res) => {
     ]);
 
     // ── Build enriched vuln list ──────────────────────────────
+    // ── OSV description fallback ──────────────────────────────────
+    const osvDescMap = {};
+    const missingDescCves = cveIds.filter(id => !cvssMap[id]?.description);
+    if (missingDescCves.length) {
+      await Promise.all(missingDescCves.map(async id => {
+        try {
+          const r = await fetch(`https://api.osv.dev/v1/vulns/${encodeURIComponent(id)}`,
+            { signal: AbortSignal.timeout(6000), headers: { Accept: 'application/json' } });
+          if (r.ok) { const d = await r.json(); osvDescMap[id] = d.details || d.summary || null; }
+        } catch {}
+      }));
+    }
+
     const vulns = matches.map(m => {
       const vuln   = m.vulnerability || {};
       const art    = m.artifact    || {};
@@ -146,8 +158,8 @@ router.post('/osscan', async (req, res) => {
       return {
         id:          cveId,
         severity:    sev,
-        summary:     cvssMap[cveId]?.description || vuln.description || '',
-        description: cvssMap[cveId]?.description || vuln.description || '',
+        summary:     cvssMap[cveId]?.description || vuln.description || osvDescMap[cveId] || '',
+        description: cvssMap[cveId]?.description || vuln.description || osvDescMap[cveId] || '',
         fix,
         fixState:    vuln.fix?.state || 'unknown',
         urls:        vuln.urls || [],

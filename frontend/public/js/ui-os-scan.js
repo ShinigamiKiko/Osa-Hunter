@@ -2,11 +2,12 @@
 // Rendering 1:1 with image scan: groups, enrichment, CVSS/NVD/EPSS/Risk/KEV/PoC
 
 const OS_DISTROS = [
-  { id:'ubuntu', label:'Ubuntu', logo:'🟠' },
-  { id:'debian', label:'Debian', logo:'🌀' },
-  { id:'rhel',   label:'RHEL',   logo:'🎩' },
-  { id:'alpine', label:'Alpine', logo:'🏔️' },
-  { id:'suse',   label:'SUSE',   logo:'🦎' },
+  { id:'ubuntu', label:'Ubuntu',      logo:'🟠' },
+  { id:'debian', label:'Debian',      logo:'🌀' },
+  { id:'rhel',   label:'RHEL',        logo:'🎩' },
+  { id:'alpine', label:'Alpine',      logo:'🏔️' },
+  { id:'suse',   label:'openSUSE',    logo:'🦎' },
+  { id:'sles',   label:'SLES',        logo:'🦎' },
 ];
 
 let osScans       = safeLoad('es_os', []);
@@ -74,32 +75,7 @@ function updateOsBadge(){
 
 // ── LIST ──────────────────────────────────────────────────────
 async function renderOsList(){
-  if (!window._histLoaded_os) {
-    window._histLoaded_os = true;
-    try {
-      const r = await fetch('/api/scans/history?type=os', {credentials:'same-origin'});
-      if (r.ok) {
-        const {entries=[]} = await r.json();
-        const existing = new Set(osScans.map(s=>s._cacheKey||String(s.id)));
-        const DM = {ubuntu:'🟠 Ubuntu',debian:'🌀 Debian',rhel:'🎩 RHEL',alpine:'🏔️ Alpine',suse:'🦎 SUSE'};
-        for (const e of entries) {
-          if (existing.has(e._cacheKey)) continue;
-          const [logo,label] = (DM[e.distro]||'🐧 '+e.distro).split(' ');
-          osScans.push({
-            id:e._cacheKey, _cacheKey:e._cacheKey,
-            pkg:e.package, pkgVer:e.version||'',
-            distro:e.distro, distroLabel:label||e.distro, distroLogo:logo||'🐧',
-            distroVer:e.distroVersion||'', desc:'',
-            vulns:e.vulns||[], counts:e.counts||{},
-            topSev:e.topSeverity||'NONE', scannedAt:e.scannedAt||e._cachedAt,
-          });
-          existing.add(e._cacheKey);
-        }
-        osScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
-        saveOs(); updateOsBadge();
-      }
-    } catch(e) { console.warn('[history] os:', e.message); }
-  }
+  // History pre-loaded by ui-scan-history.js (navTo hook)
   updateOsBadge();
   const el=document.getElementById('osListContent');
   if(!osScans.length){

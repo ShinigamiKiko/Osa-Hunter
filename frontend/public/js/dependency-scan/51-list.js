@@ -1,24 +1,7 @@
 // Split from 50-pages.js to keep files smaller. Logic unchanged.
 
 async function renderDepList(){
-  if (!window._histLoaded_dep) {
-    window._histLoaded_dep = true;
-    try {
-      for (const type of ['dep','composer']) {
-        const r = await fetch('/api/scans/history?type='+type, {credentials:'same-origin'});
-        if (!r.ok) continue;
-        const {entries=[]} = await r.json();
-        const existing = new Set(depScans.map(s=>s._cacheKey||String(s.id)));
-        for (const e of entries) {
-          if (existing.has(e._cacheKey)) continue;
-          depScans.push({...e,id:e._cacheKey,_cacheKey:e._cacheKey,desc:e.desc||'',scannedAt:e.scannedAt||e._cachedAt});
-          existing.add(e._cacheKey);
-        }
-        depScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
-        saveDep(); updateDepBadge();
-      }
-    } catch(e) { console.warn('[history] dep:', e.message); }
-  }
+  // History pre-loaded by ui-scan-history.js (navTo hook)
   updateDepBadge();
   const el=document.getElementById('depListContent');
   if(!depScans.length){

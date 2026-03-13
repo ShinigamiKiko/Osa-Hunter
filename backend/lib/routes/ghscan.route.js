@@ -1,6 +1,6 @@
 // routes/ghscan.route.js — POST /api/ghscan
 'use strict';
-const { withCache } = require('../auth/scanCache');
+const { withCache, ScanError } = require('../auth/scanCache');
 
 const express      = require('express');
 const router       = express.Router();
@@ -88,9 +88,10 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
       signal: AbortSignal.timeout(8000),
       headers: { 'User-Agent': 'OSAHunter/1.0' },
     });
-    if (check.status === 404) return res.status(404).json({ error: `Repository "${repo}" not found on GitHub` });
+    if (check.status === 404) throw new ScanError(404, `Repository "${repo}" not found on GitHub`);
   } catch (e) {
-    return res.status(502).json({ error: 'GitHub unreachable: ' + e.message });
+    if (e instanceof ScanError) throw e;
+    throw new ScanError(502, 'GitHub unreachable: ' + e.message);
   }
 
   // ── 2. Clone ──────────────────────────────────────────────
@@ -107,7 +108,7 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     });
   } catch (e) {
     cleanup(tmpDir);
-    return res.status(502).json({ error: `Clone failed: ${e.message}` });
+    throw new ScanError(502, `Clone failed: ${e.message}`);
   }
 
   // ── 3. Size check ─────────────────────────────────────────
@@ -117,7 +118,7 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     console.log(`[GHScan] ${repo} — size: ${mb}MB`);
     if (mb > 700) {
       cleanup(tmpDir);
-      return res.status(413).json({ error: `Repository too large (${mb}MB). Limit is 700MB.` });
+      throw new ScanError(413, `Repository too large (${mb}MB). Limit is 700MB.`);
     }
   } catch {}
 
@@ -158,7 +159,7 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     if (!fs.existsSync(jsonOut)) {
       cleanup(tmpDir);
       cleanupFile(jsonOut);
-      return res.status(500).json({ error: 'Semgrep failed: ' + (semgrepErr.slice(0,200) || e.message) });
+      throw new ScanError(500, 'Semgrep failed: ' + (semgrepErr.slice(0,200) || e.message));
     }
   } // end semgrep try/catch — tmpDir still alive here
 
@@ -172,7 +173,7 @@ router.post('/ghscan', rateLimit(scanLimiter), async (req, res) => {
     console.error('[GHScan] JSON file read/parse failed:', e.message);
     cleanup(tmpDir);
     cleanupFile(jsonOut);
-    return res.status(500).json({ error: 'Failed to read Semgrep JSON output: ' + e.message });
+    throw new ScanError(500, 'Failed to read Semgrep JSON output: ' + e.message);
   } finally {
     cleanupFile(jsonOut);
     console.log(`[GHScan] ${repo} — JSON file deleted`);

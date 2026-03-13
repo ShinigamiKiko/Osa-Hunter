@@ -6,6 +6,20 @@
 <title>OSA Hunter</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/css/main.css"/>
+<style>
+  /* Fix: error text overflowing modal boundaries */
+  .merr {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .modal {
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+</style>
 </head>
 <body>
 <canvas id="cvs"></canvas>
@@ -46,6 +60,9 @@
       <span class="nav-badge" id="ghBadge" style="display:none;background:#a78bfa">0</span>
     </button>
   </nav>
+  <div style="padding:0 16px 10px">
+    <button onclick="clearScanCache()" style="width:100%;padding:8px;background:rgba(255,59,48,.08);border:1px solid rgba(255,59,48,.25);border-radius:8px;color:rgba(255,59,48,.8);font-size:11px;cursor:pointer;font-family:var(--font-mono);transition:all .15s" onmouseover="this.style.background='rgba(255,59,48,.15)'" onmouseout="this.style.background='rgba(255,59,48,.08)'" id="btnClearCache">🗑 Clear scan cache</button>
+  </div>
   <div class="sidebar-status">
     <div class="status-row"><div class="sdot ok" id="osvDot"></div>OSV API</div>
     <div class="status-row"><div class="sdot" id="trivyDot"></div>Trivy</div>
@@ -215,6 +232,7 @@
 <script src="/js/canvas.js"></script>
 <script src="/js/ui-export.js"></script>
 <script src="/js/ui-nav.js"></script>
+<script src="/js/ui-scan-history.js"></script>
 <script src="/js/epss.js"></script>
 <script src="/js/enrich.js"></script>
 <script src="/js/toxic.js"></script>
@@ -234,5 +252,21 @@
 <script src="/js/ui-app.js"></script>
 <script src="/js/ui-auth.js"></script>
 <script src="/js/ui-admin.js"></script>
+<script>
+async function clearScanCache(type) {
+  const btn = document.getElementById('btnClearCache');
+  if (btn) { btn.textContent = '⏳ Clearing…'; btn.disabled = true; }
+  try {
+    const url = type ? `/api/cache?type=${type}` : '/api/cache';
+    const r = await fetch(url, { method: 'DELETE' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed');
+    if (btn) btn.textContent = `✅ Cleared ${d.deleted} entries`;
+    setTimeout(() => { if(btn){btn.textContent='🗑 Clear scan cache';btn.disabled=false;} }, 2500);
+  } catch(e) {
+    if (btn) { btn.textContent = '❌ ' + e.message; btn.disabled = false; }
+  }
+}
+</script>
 </body>
 </html>

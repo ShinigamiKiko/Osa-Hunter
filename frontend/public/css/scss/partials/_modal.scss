@@ -15,7 +15,7 @@
   border-radius: 18px;
   padding: 32px;
   width: 100%; max-width: 500px; max-height: 90vh;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
   animation: pi .22s cubic-bezier(.34,1.56,.64,1);
 }
 
@@ -140,7 +140,7 @@
 }
 
 .row2 { display: grid; grid-template-columns: 1fr 140px; gap: 10px; }
-.merr { margin-top: 11px; padding: 12px 15px; background: var(--c-bg); border: 1px solid var(--c-br); border-radius: 8px; color: var(--c); font-size: 14px; }
+.merr { margin-top: 11px; padding: 12px 15px; background: var(--c-bg); border: 1px solid var(--c-br); border-radius: 8px; color: var(--c); font-size: 14px; word-break: break-word; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
 
 .spin {
   width: 13px; height: 13px;

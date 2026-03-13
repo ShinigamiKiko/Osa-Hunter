@@ -51,29 +51,7 @@ async function doGhScan(){
 
 // ── LIST ──────────────────────────────────────────────────────
 async function renderGhList(){
-  if (!window._histLoaded_sast) {
-    window._histLoaded_sast = true;
-    try {
-      const r = await fetch('/api/scans/history?type=sast', {credentials:'same-origin'});
-      if (r.ok) {
-        const {entries=[]} = await r.json();
-        const existing = new Set(ghScans.map(s=>s._cacheKey||String(s.id)));
-        for (const e of entries) {
-          if (existing.has(e._cacheKey)) continue;
-          ghScans.push({
-            id:e._cacheKey, _cacheKey:e._cacheKey,
-            url:e.url||'', desc:e.desc||'', repo:e.repo||'',
-            findings:e.findings||[], counts:e.counts||{},
-            topSev:e.topSev||'NONE', toxic:e.toxic||{found:false},
-            scannedAt:e.scannedAt||e._cachedAt,
-          });
-          existing.add(e._cacheKey);
-        }
-        ghScans.sort((a,b)=>new Date(b.scannedAt||0)-new Date(a.scannedAt||0));
-        saveGh(); updateGhBadge();
-      }
-    } catch(e) { console.warn('[history] sast:', e.message); }
-  }
+  // History pre-loaded by ui-scan-history.js (navTo hook)
   updateGhBadge();
   const el = document.getElementById('ghListContent');
   if(!ghScans.length){

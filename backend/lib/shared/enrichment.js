@@ -1,13 +1,12 @@
 'use strict';
 
-const { EPSS_URL, POC_BASE } = require('./constants');
+const { EPSS_URL, POC_BASE, OSV_URL, SEV_ORD } = require('./constants');
 const { pLimit } = require('./primitives');
 const { nvdCache } = require('./cisaKev');
+const { getCisaSet } = require('./cisaKev');
 
-// ── NVD config — читается один раз при старте ─────────────────
-const NVD_API_KEY    = process.env.NVD_API_KEY || '';
-// Без ключа: 5 req/30s → concurrency 3, таймаут 10s
-// С ключом:  50 req/30s → concurrency 10, таймаут 8s
+// ── NVD config ─────────────────────────────────────────────────
+const NVD_API_KEY     = process.env.NVD_API_KEY || '';
 const NVD_CONCURRENCY = NVD_API_KEY ? 10 : 3;
 const NVD_TIMEOUT_MS  = NVD_API_KEY ? 8000 : 10000;
 
@@ -17,6 +16,7 @@ if (NVD_API_KEY) {
   console.log('[NVD] No API key — conservative mode (concurrency 3). Set NVD_API_KEY for faster enrichment.');
 }
 
+// ── EPSS ───────────────────────────────────────────────────────
 async function fetchEpss(cveIds) {
   if (!cveIds.length) return {};
   const results = {};
@@ -26,14 +26,14 @@ async function fetchEpss(cveIds) {
       const r = await fetch(`${EPSS_URL}?cve=${chunk.join(',')}&limit=${chunk.length}`, { signal: AbortSignal.timeout(15000) });
       if (!r.ok) continue;
       const d = await r.json();
-      for (const item of d.data || []) {
+      for (const item of d.data || [])
         results[item.cve] = { epss: parseFloat(item.epss), percentile: parseFloat(item.percentile) };
-      }
     } catch {}
   }
   return results;
 }
 
+// ── NVD CVSS ───────────────────────────────────────────────────
 async function fetchCvss(cveIds) {
   if (!cveIds.length) return {};
   const result = {};
@@ -46,7 +46,6 @@ async function fetchCvss(cveIds) {
         `https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=${encodeURIComponent(cveId)}`,
         { signal: AbortSignal.timeout(NVD_TIMEOUT_MS), headers }
       );
-      // При 429 — не кешируем null, дадим шанс следующему запросу
       if (r.status === 429) { result[cveId] = null; return; }
       if (!r.ok) { nvdCache.set(cveId, null); return; }
       const d = await r.json();
@@ -68,6 +67,7 @@ async function fetchCvss(cveIds) {
   return result;
 }
 
+// ── PoC ────────────────────────────────────────────────────────
 async function fetchPocs(cveIds) {
   if (!cveIds.length) return {};
   const result = {};
@@ -91,15 +91,83 @@ async function fetchPocs(cveIds) {
   return result;
 }
 
-function extractCVEs(vulns) {
-  const s = new Set();
-  for (const v of vulns) {
-    for (const a of v.aliases || []) if (a.startsWith('CVE-')) s.add(a);
-    if (v.id?.startsWith('CVE-')) s.add(v.id);
-  }
-  return [...s];
+// ── OSV description fallback (by CVE ID) ──────────────────────
+const _osvDescCache = new Map();
+async function fetchOsvDesc(cveId) {
+  if (_osvDescCache.has(cveId)) return _osvDescCache.get(cveId);
+  try {
+    const r = await fetch(`${OSV_URL}/vulns/${encodeURIComponent(cveId)}`,
+      { signal: AbortSignal.timeout(6000), headers: { Accept: 'application/json' } });
+    if (!r.ok) { _osvDescCache.set(cveId, null); return null; }
+    const d = await r.json();
+    const desc = d.details || d.summary || null;
+    _osvDescCache.set(cveId, desc);
+    return desc;
+  } catch { _osvDescCache.set(cveId, null); return null; }
 }
 
+// ── OSV query for a single package ────────────────────────────
+async function osvQuery(pkgName, ecosystem, version) {
+  try {
+    const body = { package: { name: pkgName, ecosystem } };
+    if (version) body.version = version;
+    const r = await fetch(`${OSV_URL}/query`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(12000),
+    });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.vulns || []).map(v => ({
+      ...v,
+      _sev    : parseSev(v),
+      _fix    : getFixed(v),
+      _aliases: v.aliases || [],
+      _refs   : (v.references || []).map(ref => ref.url),
+    })).sort((a, b) => SEV_ORD.indexOf(a._sev) - SEV_ORD.indexOf(b._sev));
+  } catch { return []; }
+}
+
+// ── Bulk enrichment — runs epss/kev/cvss/pocs in parallel ─────
+// Returns { epssMap, kevSet, cvssMap, pocMap }
+async function bulkEnrich(cveIds) {
+  const [epssRes, kevRes, cvssRes, pocRes] = await Promise.allSettled([
+    fetchEpss(cveIds),
+    (async () => { const s = await getCisaSet(); return cveIds.filter(c => s.has(c)); })(),
+    fetchCvss(cveIds),
+    fetchPocs(cveIds),
+  ]);
+  return {
+    epssMap: epssRes.status === 'fulfilled' ? epssRes.value : {},
+    kevSet : new Set(kevRes.status === 'fulfilled' ? kevRes.value : []),
+    cvssMap: cvssRes.status === 'fulfilled' ? cvssRes.value : {},
+    pocMap : pocRes.status  === 'fulfilled' ? pocRes.value  : {},
+  };
+}
+
+// ── Enrich a list of OSV vulns with epss/cvss/kev/pocs ────────
+function enrichVulns(vulns, { epssMap, kevSet, cvssMap, pocMap }) {
+  return vulns.map(v => {
+    const cve = [...(v._aliases || []), v.id].find(x => x?.startsWith('CVE-')) || null;
+    return {
+      id       : v.id,
+      summary  : v.summary   || null,
+      details  : v.details   || null,
+      published: v.published || null,
+      modified : v.modified  || null,
+      severity : v._sev,
+      fix      : v._fix      || null,
+      aliases  : v._aliases,
+      refs     : v._refs,
+      cve,
+      epss  : cve ? (epssMap[cve] || null) : null,
+      cvss  : cve ? (cvssMap[cve] || null) : null,
+      inKev : cve ? kevSet.has(cve)         : false,
+      pocs  : cve ? (pocMap[cve]  || [])    : [],
+    };
+  });
+}
+
+// ── Severity helpers ───────────────────────────────────────────
 function parseSev(v) {
   for (const s of v.severity || []) {
     const sc = parseFloat(s.score);
@@ -122,4 +190,29 @@ function getFixed(v) {
   return null;
 }
 
-module.exports = { fetchEpss, fetchCvss, fetchPocs, extractCVEs, parseSev, getFixed };
+function extractCVEs(vulns) {
+  const s = new Set();
+  for (const v of vulns) {
+    for (const a of v.aliases || []) if (a.startsWith('CVE-')) s.add(a);
+    if (v.id?.startsWith('CVE-')) s.add(v.id);
+  }
+  return [...s];
+}
+
+// ── Risk score (CVSS × EPSS, used by OS scan) ─────────────────
+function calcRisk(cvss, epss) {
+  const cvssScore = cvss?.cvss3?.score ?? cvss?.cvss2?.score ?? 0;
+  const epssScore = epss?.epss ?? 0;
+  const raw = (cvssScore / 10) * 0.6 + epssScore * 0.4;
+  const pct = Math.round(raw * 100);
+  const label = pct >= 80 ? 'CRITICAL' : pct >= 50 ? 'HIGH' : pct >= 25 ? 'MEDIUM' : 'LOW';
+  return { score: pct, label };
+}
+
+module.exports = {
+  fetchEpss, fetchCvss, fetchPocs,
+  fetchOsvDesc, osvQuery,
+  bulkEnrich, enrichVulns,
+  parseSev, getFixed, extractCVEs,
+  calcRisk,
+};

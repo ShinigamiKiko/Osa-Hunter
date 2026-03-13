@@ -1,20 +1,26 @@
 // routes/depscan.js — POST /api/depscan
 // deps.dev граф + OSV + Toxic для root и каждой зависимости + EPSS/CISA/NVD/PoC
 'use strict';
-const { withCache } = require('../auth/scanCache');
+const { withCache, ScanError } = require('../auth/scanCache');
 const express = require('express');
 const router  = express.Router();
 const {
-  OSV_URL, scanLimiter, rateLimit,
-  getCisaSet, checkToxic,
-  fetchEpss, fetchCvss, fetchPocs,
-  extractCVEs, parseSev, getFixed,
+  SEV_ORD, scanLimiter, rateLimit,
+  checkToxic, pLimit,
+  osvQuery, bulkEnrich, enrichVulns, extractCVEs,
 } = require('../shared');
 
 const DEPSDEV_URL     = 'https://api.deps.dev/v3alpha';
 const DEPSDEV_SYSTEMS = new Set(['NPM','GO','PYPI','CARGO','MAVEN','NUGET']);
 const SYSTEM_TO_OSV   = { NPM:'npm', GO:'Go', PYPI:'PyPI', CARGO:'crates.io', MAVEN:'Maven', NUGET:'NuGet' };
-const SEV_ORD         = ['CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN','NONE'];
+// Ecosystems where versions must be prefixed with 'v' (user may omit it)
+const NEEDS_V_PREFIX  = new Set(['GO']);
+
+function normalizeVersion(ver, sys) {
+  if (!ver) return ver;
+  if (NEEDS_V_PREFIX.has(sys) && !ver.startsWith('v')) return 'v' + ver;
+  return ver;
+}
 
 async function depsDevGet(path) {
   const r = await fetch(`${DEPSDEV_URL}${path}`, {
@@ -22,26 +28,6 @@ async function depsDevGet(path) {
   });
   if (!r.ok) throw new Error(`deps.dev HTTP ${r.status} for ${path}`);
   return r.json();
-}
-
-async function osvQueryDep(depName, depEco, depVer) {
-  try {
-    const body = { package: { name: depName, ecosystem: depEco } };
-    if (depVer) body.version = depVer;
-    const r = await fetch(`${OSV_URL}/query`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body), signal: AbortSignal.timeout(12000),
-    });
-    if (!r.ok) return [];
-    const d = await r.json();
-    return (d.vulns || []).map(v => ({
-      ...v,
-      _sev    : parseSev(v),
-      _fix    : getFixed(v),
-      _aliases: v.aliases || [],
-      _refs   : (v.references || []).map(r => r.url),
-    })).sort((a, b) => SEV_ORD.indexOf(a._sev) - SEV_ORD.indexOf(b._sev));
-  } catch { return []; }
 }
 
 router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
@@ -56,26 +42,37 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
   if (!DEPSDEV_SYSTEMS.has(sys))
     return res.status(400).json({ error: `Unknown system "${sys}". Supported: ${[...DEPSDEV_SYSTEMS].join(', ')}` });
 
-  const pkg    = name.trim();
+  const pkg       = name.trim();
+  const osvEco    = SYSTEM_TO_OSV[sys];
   const _cacheKey = `dep:${sys}:${pkg}:${(version||'').trim()||'latest'}`;
-  const osvEco = SYSTEM_TO_OSV[sys];
 
   return withCache(_cacheKey, 'dep', res, async () => {
   console.log(`[depscan] ${sys}/${pkg}${version ? '@' + version : ''}`);
 
   // 1. Resolve version
-  let resolvedVersion = (version || '').trim();
+  let resolvedVersion = normalizeVersion((version || '').trim(), sys);
   try {
     const data = await depsDevGet(`/systems/${sys.toLowerCase()}/packages/${encodeURIComponent(pkg)}`);
+    const available = data.versions || [];
     if (!resolvedVersion) {
-      const def = (data.versions || []).find(v => v.isDefault);
-      resolvedVersion = def ? def.versionKey.version : (data.versions?.[0]?.versionKey?.version || '');
+      const def = available.find(v => v.isDefault);
+      resolvedVersion = def ? def.versionKey.version : (available[0]?.versionKey?.version || '');
+    } else {
+      const exists = available.some(v => v.versionKey.version === resolvedVersion);
+      if (!exists && available.length > 0) {
+        const latest = (available.find(v => v.isDefault) || available[available.length - 1])?.versionKey?.version;
+        throw new ScanError(404,
+          `Version "${resolvedVersion}" not found for ${pkg}. ` +
+          (latest ? `Latest available: ${latest}` : `Try leaving the version field empty.`)
+        );
+      }
     }
   } catch (e) {
-    return res.status(502).json({ error: `deps.dev package lookup failed: ${e.message}` });
+    if (e instanceof ScanError) throw e;
+    throw new ScanError(502, `deps.dev package lookup failed: ${e.message}`);
   }
   if (!resolvedVersion)
-    return res.status(404).json({ error: 'Could not resolve a version for this package' });
+    throw new ScanError(404, 'Could not resolve a version for this package');
 
   // 2. Version details + dep graph
   let versionData, rawDeps = [];
@@ -88,7 +85,7 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
       rawDeps = depGraph.nodes || [];
     } catch (e) { console.warn('[depscan] dep graph unavailable:', e.message); }
   } catch (e) {
-    return res.status(502).json({ error: `deps.dev version lookup failed: ${e.message}` });
+    throw new ScanError(502, `deps.dev version lookup failed: ${e.message}`);
   }
 
   const info = {
@@ -113,60 +110,40 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
   const deps = [...seen.values()];
   console.log(`[depscan] ${deps.length} deps for ${pkg}@${resolvedVersion}`);
 
-  // 4. OSV + Toxic per dep (concurrency=6) + Toxic for root
-  const { pLimit } = require('../shared');
+  // 4. OSV + Toxic per dep (concurrency=6) + root in parallel
   const scannedDeps = [];
   await pLimit(deps, 6, async (dep) => {
     const depEco = SYSTEM_TO_OSV[dep.system] || osvEco;
     const [vulns, toxic] = await Promise.all([
-      osvQueryDep(dep.name, depEco, dep.version),
+      osvQuery(dep.name, depEco, dep.version),
       checkToxic(dep.name),
     ]);
     scannedDeps.push({ ...dep, vulns, toxic });
   });
 
-  const rootToxic  = await checkToxic(pkg);
+  const [rootVulns, rootToxic] = await Promise.all([
+    osvQuery(pkg, osvEco, resolvedVersion),
+    checkToxic(pkg),
+  ]);
+
   const orderedDeps = deps.map(d =>
     scannedDeps.find(s => s.name === d.name && s.version === d.version && s.system === d.system)
     || { ...d, vulns: [], toxic: { found: false } }
   );
 
   // 5. Bulk enrichment for all CVEs
-  const allCVEs = [...new Set(orderedDeps.flatMap(d => extractCVEs(d.vulns)))];
+  const allCVEs = [...new Set([...extractCVEs(rootVulns), ...orderedDeps.flatMap(d => extractCVEs(d.vulns))])];
   console.log(`[depscan] enriching ${allCVEs.length} unique CVEs`);
 
-  const [epssRes, kevRes, cvssRes, pocRes] = await Promise.allSettled([
-    fetchEpss(allCVEs),
-    (async () => { const s = await getCisaSet(); return allCVEs.filter(c => s.has(c)); })(),
-    fetchCvss(allCVEs),
-    fetchPocs(allCVEs),
-  ]);
+  const maps = await bulkEnrich(allCVEs);
 
-  const epssMap = epssRes.status === 'fulfilled' ? epssRes.value : {};
-  const kevSet  = new Set(kevRes.status === 'fulfilled' ? kevRes.value : []);
-  const cvssMap = cvssRes.status === 'fulfilled' ? cvssRes.value : {};
-  const pocMap  = pocRes.status  === 'fulfilled' ? pocRes.value  : {};
+  // 6. Enrich root + deps
+  const rootEnrichedVulns = enrichVulns(rootVulns, maps);
+  const rootCounts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 };
+  for (const v of rootEnrichedVulns) if (v.severity in rootCounts) rootCounts[v.severity]++;
 
-  // 6. Merge enrichment
   const finalDeps = orderedDeps.map(dep => {
-    const enrichedVulns = dep.vulns.map(v => {
-      const cve = [...(v._aliases || []), v.id].find(x => x.startsWith('CVE-')) || null;
-      return {
-        id      : v.id,
-        summary : v.summary   || null,
-        details : v.details   || null,
-        published: v.published || null,
-        severity: v._sev,
-        fix     : v._fix      || null,
-        aliases : v._aliases,
-        refs    : v._refs,
-        cve,
-        epss  : cve ? (epssMap[cve] || null) : null,
-        cvss  : cve ? (cvssMap[cve] || null) : null,
-        inKev : cve ? kevSet.has(cve)         : false,
-        pocs  : cve ? (pocMap[cve]  || [])    : [],
-      };
-    });
+    const enrichedVulns = enrichVulns(dep.vulns, maps);
     const cnt = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 };
     for (const v of enrichedVulns) if (v.severity in cnt) cnt[v.severity]++;
     return {
@@ -187,18 +164,31 @@ router.post('/depscan', rateLimit(scanLimiter), async (req, res) => {
     totalDeps : finalDeps.length,
     directDeps: finalDeps.filter(d => d.relation === 'DIRECT').length,
     withVulns : finalDeps.filter(d => d.vulnCount > 0).length,
+    rootVulnCount: rootEnrichedVulns.length,
     toxic     : finalDeps.filter(d => d.toxic?.found).length,
-    CRITICAL  : finalDeps.reduce((a, d) => a + d.counts.CRITICAL, 0),
-    HIGH      : finalDeps.reduce((a, d) => a + d.counts.HIGH,     0),
-    MEDIUM    : finalDeps.reduce((a, d) => a + d.counts.MEDIUM,   0),
-    LOW       : finalDeps.reduce((a, d) => a + d.counts.LOW,      0),
+    CRITICAL  : rootCounts.CRITICAL + finalDeps.reduce((a, d) => a + d.counts.CRITICAL, 0),
+    HIGH      : rootCounts.HIGH     + finalDeps.reduce((a, d) => a + d.counts.HIGH,     0),
+    MEDIUM    : rootCounts.MEDIUM   + finalDeps.reduce((a, d) => a + d.counts.MEDIUM,   0),
+    LOW       : rootCounts.LOW      + finalDeps.reduce((a, d) => a + d.counts.LOW,      0),
+  };
+
+  const rootEntry = {
+    name       : pkg,
+    system     : sys,
+    version    : resolvedVersion,
+    relation   : 'ROOT',
+    toxic      : rootToxic,
+    topSeverity: SEV_ORD.find(s => rootCounts[s] > 0) || 'NONE',
+    vulnCount  : rootEnrichedVulns.length,
+    counts     : rootCounts,
+    vulns      : rootEnrichedVulns,
   };
 
   return {
     package: pkg, system: sys, version: version || null,
     resolvedVersion, scannedAt: new Date().toISOString(),
     toxic: rootToxic,
-    info, summary, deps: finalDeps,
+    info, summary, deps: [rootEntry, ...finalDeps],
   };
   }); // withCache
 });
