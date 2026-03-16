@@ -37,6 +37,9 @@ class RateLimiter {
     this._max = maxRequests;
     this._window = windowMs;
     this._log = new Map();
+    // Clean up stale entries every window period — avoids unbounded memory
+    // growth when there are many unique IPs (e.g. scanners, bots).
+    setInterval(() => this._cleanup(Date.now()), windowMs).unref();
   }
   check(ip) {
     const now = Date.now();
@@ -44,7 +47,6 @@ class RateLimiter {
     if (hits.length >= this._max) return false;
     hits.push(now);
     this._log.set(ip, hits);
-    if (Math.random() < 0.01) this._cleanup(now);
     return true;
   }
   _cleanup(now) {

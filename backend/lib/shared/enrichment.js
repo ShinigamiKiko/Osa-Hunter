@@ -92,6 +92,8 @@ async function fetchPocs(cveIds) {
 }
 
 // ── OSV description fallback (by CVE ID) ──────────────────────
+// Capped at 2 000 entries to prevent unbounded in-process memory growth.
+const OSV_DESC_CACHE_MAX = 2000;
 const _osvDescCache = new Map();
 async function fetchOsvDesc(cveId) {
   if (_osvDescCache.has(cveId)) return _osvDescCache.get(cveId);
@@ -101,6 +103,10 @@ async function fetchOsvDesc(cveId) {
     if (!r.ok) { _osvDescCache.set(cveId, null); return null; }
     const d = await r.json();
     const desc = d.details || d.summary || null;
+    // Evict oldest entry when cap is reached (Map preserves insertion order)
+    if (_osvDescCache.size >= OSV_DESC_CACHE_MAX) {
+      _osvDescCache.delete(_osvDescCache.keys().next().value);
+    }
     _osvDescCache.set(cveId, desc);
     return desc;
   } catch { _osvDescCache.set(cveId, null); return null; }

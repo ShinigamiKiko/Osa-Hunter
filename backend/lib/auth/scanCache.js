@@ -19,9 +19,9 @@ async function withCache(key, type, res, scanFn) {
       `SELECT payload, scanned_at
        FROM scan_cache
        WHERE cache_key = $1
-         AND scanned_at > NOW() - INTERVAL '${TTL_HOURS} hours'
+         AND scanned_at > NOW() - ($2 || ' hours')::interval
        LIMIT 1`,
-      [key]
+      [key, TTL_HOURS]
     );
     if (rows.length) {
       const age = Math.round((Date.now() - new Date(rows[0].scanned_at)) / 60000);
@@ -88,7 +88,8 @@ async function invalidate(key) {
 async function purgeExpired() {
   try {
     const { rowCount } = await getPool().query(
-      `DELETE FROM scan_cache WHERE scanned_at < NOW() - INTERVAL '${TTL_HOURS} hours'`
+      `DELETE FROM scan_cache WHERE scanned_at < NOW() - ($1 || ' hours')::interval`,
+      [TTL_HOURS]
     );
     if (rowCount) console.log(`[cache] purged ${rowCount} expired entries`);
   } catch (e) {

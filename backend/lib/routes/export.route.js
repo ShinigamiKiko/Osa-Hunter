@@ -18,11 +18,26 @@ try {
   console.warn('[export] osa.png not found:', e.message);
 }
 
-async function internalPostJson(pathname, body) {
+// Auth is already verified by requireAuth middleware before this route is
+// reached. The internal fetch must forward credentials so the downstream
+// route handlers don't reject the request with 401.
+// We prefer req.ip over X-Forwarded-For to avoid spoofing — the rate
+// limiter on sub-routes uses req.ip as well, so the internal call is
+// counted against the same bucket as the outer request.
+async function internalPostJson(pathname, body, req) {
   const port = process.env.PORT || 3001;
+
+  const headers = { 'Content-Type': 'application/json' };
+  // Forward whichever auth mechanism the original request used
+  if (req.headers['x-api-key']) {
+    headers['x-api-key'] = req.headers['x-api-key'];
+  } else if (req.headers.cookie) {
+    headers['cookie'] = req.headers.cookie;
+  }
+
   const r = await fetch(`http://localhost:${port}/api/${pathname}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body || {}),
   });
   const data = await r.json().catch(() => ({}));
@@ -77,15 +92,15 @@ router.post('/export/pdf', rateLimit(scanLimiter), async (req, res) => {
       const { name, ecosystem, version, desc, ecoLabel, ecoLogo } = params;
       if (!name || !ecosystem) return res.status(400).json({ error: 'lib scan requires name + ecosystem' });
 
-      const data = await internalPostJson('libscan', { name, ecosystem, version });
-      const actData = await internalPostJson('activity', { name, ecosystem: ecoLabel || ecosystem }).catch(() => null);
+      const data = await internalPostJson('libscan', { name, ecosystem, version }, req);
+      const actData = await internalPostJson('activity', { name, ecosystem: ecoLabel || ecosystem }, req).catch(() => null);
       scan = { ...data, desc, ecoLabel: ecoLabel || ecosystem, ecoLogo: ecoLogo || '📦', activity: actData };
 
     } else if (type === 'img') {
       const { image, tag, desc } = params;
       if (!image) return res.status(400).json({ error: 'img scan requires image' });
 
-      const data = await internalPostJson('trivy/scan', { image, tag: tag || 'latest', desc });
+      const data = await internalPostJson('trivy/scan', { image, tag: tag || 'latest', desc }, req);
       const enriched = await enrichTrivyVulns(data);
       scan = { image, tag: tag || 'latest', desc, ...enriched, scannedAt: new Date().toISOString() };
 

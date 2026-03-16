@@ -53,14 +53,17 @@ router.post('/osscan', async (req, res) => {
   if (!name)   return res.status(400).json({ error: 'Package name is required' });
   if (!distro) return res.status(400).json({ error: 'Distro is required' });
 
-  const _cacheKey = `os:${distro}:${name}:${version||'any'}`;
-  return withCache(_cacheKey, 'os', res, async () => {
-  if (!validPkg(name)) return res.status(400).json({ error: 'Invalid package name' });
-  if (version && !validPkg(version)) return res.status(400).json({ error: 'Invalid version' });
+  // Validate all inputs BEFORE hitting the cache — avoids caching invalid
+  // keys and prevents cache misses on every repeated bad request.
+  if (!validPkg(name))                    return res.status(400).json({ error: 'Invalid package name' });
+  if (version && !validPkg(version))      return res.status(400).json({ error: 'Invalid version' });
   if (distroVersion && !validDistroVer(distroVersion)) return res.status(400).json({ error: 'Invalid distro version' });
 
   const dm = DISTRO_MAP[distro.toLowerCase()];
   if (!dm) return res.status(400).json({ error: `Unknown distro: ${distro}` });
+
+  const _cacheKey = `os:${distro}:${name}:${version||'any'}`;
+  return withCache(_cacheKey, 'os', res, async () => {
 
   // Build PURL: pkg:deb/ubuntu/openssl@3.0.2
   const purl = `pkg:${dm.type}/${dm.ns}/${encodeURIComponent(name)}${version ? '@' + version : ''}`;
@@ -105,16 +108,13 @@ router.post('/osscan', async (req, res) => {
     ]);
 
     // ── Build enriched vuln list ──────────────────────────────
-    // ── OSV description fallback ──────────────────────────────────
+    // ── OSV description fallback via shared fetchOsvDesc ──────────
     const osvDescMap = {};
     const missingDescCves = cveIds.filter(id => !cvssMap[id]?.description);
     if (missingDescCves.length) {
       await Promise.all(missingDescCves.map(async id => {
-        try {
-          const r = await fetch(`https://api.osv.dev/v1/vulns/${encodeURIComponent(id)}`,
-            { signal: AbortSignal.timeout(6000), headers: { Accept: 'application/json' } });
-          if (r.ok) { const d = await r.json(); osvDescMap[id] = d.details || d.summary || null; }
-        } catch {}
+        const desc = await fetchOsvDesc(id).catch(() => null);
+        if (desc) osvDescMap[id] = desc;
       }));
     }
 

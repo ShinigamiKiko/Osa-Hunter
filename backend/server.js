@@ -13,7 +13,22 @@ const authRoutes              = require('./lib/auth/routes');
 const apiKeyRoutes            = require('./lib/auth/api-key-routes');
 const scanHistoryRoutes       = require('./lib/routes/scan-history.route');
 
+// ── Guard: SESSION_SECRET must be explicitly set in production ─
+if (!process.env.SESSION_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[boot] FATAL: SESSION_SECRET env var is not set. Refusing to start in production.');
+    process.exit(1);
+  } else {
+    console.warn('[boot] WARNING: SESSION_SECRET is not set. Using insecure default — never do this in production.');
+  }
+}
+
 const app = express();
+
+// ── Trust reverse proxy so req.ip reflects the real client IP ─
+// Required for rate-limiting and audit logs to work correctly
+// when running behind nginx / Caddy / AWS ALB / etc.
+app.set('trust proxy', 1);
 
 // ── Security headers ──────────────────────────────────────────
 app.use((req, res, next) => {
@@ -43,12 +58,6 @@ app.use(express.json({ limit: '64kb' }));
 
 // ── Static frontend ───────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend/public')));
-
-// ── Global error handler ──────────────────────────────────────
-app.use((err, req, res, _next) => {
-  console.error('[Unhandled]', err.message);
-  res.status(500).json({ error: 'Internal server error' });
-});
 
 // ── Start ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
@@ -112,6 +121,12 @@ runMigrations()
         process.exit(1);
       }
     }
+
+    // ── Global error handler — must be registered AFTER all routes ─
+    app.use((err, req, res, _next) => {
+      console.error('[Unhandled]', err.message);
+      if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    });
 
     // Purge expired cache entries every 6 hours
     setInterval(purgeExpired, 6 * 60 * 60 * 1000);

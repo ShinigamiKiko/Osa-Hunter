@@ -17,7 +17,10 @@ const scanLimiter = new RateLimiter(
 
 function rateLimit(limiter) {
   return (req, res, next) => {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    // req.ip respects app.set('trust proxy', 1) set in server.js,
+    // so it returns the real client IP even behind a reverse proxy.
+    // Do NOT read X-Forwarded-For manually — it is trivially spoofable.
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
     if (!limiter.check(ip)) return res.status(429).json({ error: 'Rate limit exceeded. Please wait before retrying.' });
     next();
   };

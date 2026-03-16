@@ -8,7 +8,7 @@ const { execFile } = require('child_process');
 const fs           = require('fs');
 const path         = require('path');
 const os           = require('os');
-const { scanLimiter, rateLimit, checkToxic } = require('../shared');
+const { scanLimiter, rateLimit, checkToxic, SEV_ORD } = require('../shared');
 
 const GH_RE = /^https:\/\/github\.com\/([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+?)(\.git)?$/;
 
@@ -57,7 +57,7 @@ function langFromPath(filePath) {
   return map[ext] || ext.toUpperCase() || 'Unknown';
 }
 
-const SEV_ORD = ['CRITICAL','HIGH','MEDIUM','LOW','WARNING','INFO','UNKNOWN'];
+// SEV_ORD imported from shared — no local redefinition needed
 function normSev(s) {
   const up = (s||'').toUpperCase();
   if (up === 'ERROR')   return 'HIGH';
