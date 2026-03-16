@@ -18,7 +18,7 @@ function hashKey(key) {
 
 // ── GET /api/auth/api-keys — list keys for current user / all for admin ──
 router.get('/auth/api-keys', async (req, res) => {
-  const user = req.session?.user;
+  const user = req.session?.user || req.user;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
@@ -44,7 +44,7 @@ router.get('/auth/api-keys', async (req, res) => {
 
 // ── POST /api/auth/api-keys — create new key ─────────────────
 router.post('/auth/api-keys', async (req, res) => {
-  const user = req.session?.user;
+  const user = req.session?.user || req.user;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { name } = req.body || {};
@@ -70,7 +70,7 @@ router.post('/auth/api-keys', async (req, res) => {
 
 // ── DELETE /api/auth/api-keys/:id ────────────────────────────
 router.delete('/auth/api-keys/:id', async (req, res) => {
-  const user = req.session?.user;
+  const user = req.session?.user || req.user;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const id = parseInt(req.params.id, 10);

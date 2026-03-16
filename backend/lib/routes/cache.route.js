@@ -4,8 +4,9 @@
 const express = require('express');
 const router  = express.Router();
 const { getPool } = require('../auth/db');
+const { requireAdmin } = require('../auth/middleware');
 
-router.delete('/cache', async (req, res) => {
+router.delete('/cache', requireAdmin, async (req, res) => {
   const { type } = req.query; // dep | lib | gh | (empty = all)
   const pool = getPool();
   try {

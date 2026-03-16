@@ -77,14 +77,6 @@ async function withCache(key, type, res, scanFn) {
   return res.json(result);
 }
 
-async function invalidate(key) {
-  try {
-    await getPool().query('DELETE FROM scan_cache WHERE cache_key = $1', [key]);
-  } catch (e) {
-    console.error('[cache] invalidate error:', e.message);
-  }
-}
-
 async function purgeExpired() {
   try {
     const { rowCount } = await getPool().query(
@@ -100,4 +92,4 @@ async function purgeExpired() {
   }
 }
 
-module.exports = { withCache, invalidate, purgeExpired, ScanError };
+module.exports = { withCache, purgeExpired, ScanError };

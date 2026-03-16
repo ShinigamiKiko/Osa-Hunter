@@ -2,8 +2,7 @@
 
 const { EPSS_URL, POC_BASE, OSV_URL, SEV_ORD } = require('./constants');
 const { pLimit } = require('./primitives');
-const { nvdCache } = require('./cisaKev');
-const { getCisaSet } = require('./cisaKev');
+const { nvdCache, getCisaSet } = require('./cisaKev');
 
 // ── NVD config ─────────────────────────────────────────────────
 const NVD_API_KEY     = process.env.NVD_API_KEY || '';

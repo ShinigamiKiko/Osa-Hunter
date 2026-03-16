@@ -33,14 +33,14 @@ services:
       - osvguard
     ports:
       - "3001:3001"
+    env_file:
+      - .env
     environment:
-      - NVD_API_KEY=${NVD_API_KEY:-}
       - PGHOST=postgres
       - PGPORT=5432
       - PGDATABASE=${PGDATABASE:-osa}
       - PGUSER=${PGUSER:-osa}
       - PGPASSWORD=${PGPASSWORD:-osa}
-      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
       - NODE_ENV=production
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

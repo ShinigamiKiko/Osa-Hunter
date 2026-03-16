@@ -37,4 +37,4 @@ async function checkToxic(pkgName) {
   };
 }
 
-module.exports = { getToxicList, checkToxic };
+module.exports = { checkToxic };

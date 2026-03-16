@@ -5,7 +5,17 @@ const router  = express.Router();
 const { TtlCache, apiLimiter, rateLimit } = require('../shared');
 
 const DEPSDEV_URL  = 'https://api.deps.dev/v3alpha';
+const ACTIVITY_CACHE_MAX = 2000;
 const activityCache = new TtlCache(6 * 3_600_000);
+
+// Wrap set to evict the oldest entry when cap is reached
+const _actSet = activityCache.set.bind(activityCache);
+activityCache.set = (key, value) => {
+  if (!activityCache.has(key) && activityCache._map.size >= ACTIVITY_CACHE_MAX) {
+    activityCache._map.delete(activityCache._map.keys().next().value);
+  }
+  _actSet(key, value);
+};
 
 async function resolveGithubRepo(name, ecosystem) {
   const sys = ecosystem?.toUpperCase();

@@ -3,6 +3,7 @@
 const express   = require('express');
 const cors      = require('cors');
 const path      = require('path');
+const crypto    = require('crypto');
 const session   = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 
@@ -13,15 +14,16 @@ const authRoutes              = require('./lib/auth/routes');
 const apiKeyRoutes            = require('./lib/auth/api-key-routes');
 const scanHistoryRoutes       = require('./lib/routes/scan-history.route');
 
-// ── Guard: SESSION_SECRET must be explicitly set in production ─
-if (!process.env.SESSION_SECRET) {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('[boot] FATAL: SESSION_SECRET env var is not set. Refusing to start in production.');
-    process.exit(1);
-  } else {
-    console.warn('[boot] WARNING: SESSION_SECRET is not set. Using insecure default — never do this in production.');
-  }
-}
+// ── SESSION_SECRET ────────────────────────────────────────────
+// If not provided, generate a random secret at startup.
+// Safe cryptographically, but note: all active sessions are invalidated
+// on every container restart. Set SESSION_SECRET in .env to persist sessions.
+const sessionSecret = process.env.SESSION_SECRET || (() => {
+  const generated = crypto.randomBytes(32).toString('hex');
+  console.warn('[boot] SESSION_SECRET not set — generated a random one.');
+  console.warn('[boot] All sessions will be lost on restart. Set SESSION_SECRET in .env to avoid this.');
+  return generated;
+})();
 
 const app = express();
 
@@ -72,7 +74,7 @@ runMigrations()
         tableName: 'session',
         createTableIfMissing: false,
       }),
-      secret: process.env.SESSION_SECRET || 'osa-hunter-secret-change-in-prod',
+      secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
       cookie: {

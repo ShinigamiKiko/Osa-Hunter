@@ -25,7 +25,8 @@ router.get('/auth/status', async (req, res) => {
 
 // ── POST /api/auth/login ──────────────────────────────────────
 router.post('/auth/login', (req, res, next) => {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+  // req.ip respects app.set('trust proxy', 1) — do NOT read X-Forwarded-For manually
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
   if (!loginLimiter.check(ip)) return res.status(429).json({ error: 'Too many login attempts. Please wait.' });
   next();
 }, async (req, res) => {
