@@ -1,0 +1,47 @@
+// ── Table wrapper ────────────────────────────────────────────
+.tbl-wrap {
+  background: var(--s1);
+  border: 1px solid var(--br);
+  border-radius: 13px;
+  overflow: hidden;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+
+  th {
+    text-align: left;
+    padding: 12px 17px;
+    font-size: 11px;
+    letter-spacing: .09em;
+    color: var(--muted);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--br);
+    background: rgba(255,255,255,.02);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  td {
+    padding: 13px 17px;
+    border-bottom: 1px solid var(--br);
+    vertical-align: middle;
+  }
+
+  .row {
+    cursor: pointer;
+    transition: background .13s;
+
+    &:last-child td { border-bottom: none; }
+    &:hover td      { background: rgba(255,255,255,.025); }
+    &:hover .row-name { color: var(--accent); text-decoration: underline; }
+  }
+}
+
+// ── Row cells ────────────────────────────────────────────────
+.row-name { color: #fff;          font-weight: 500; font-size: 17px; transition: color .13s; }
+.row-eco  { font-size: 13px;      color: var(--accent); letter-spacing: .05em; margin-top: 2px; }
+.row-desc { color: var(--muted);  font-size: 15px; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-ver  { color: var(--muted2); font-size: 15px; }
